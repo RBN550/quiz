@@ -1,0 +1,795 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz – Host</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple-dark: #46178F;
+      --purple: #8B2FC9;
+      --red:    #E21B3C;
+      --blue:   #1368CE;
+      --yellow: #D89E00;
+      --green:  #26890C;
+      --white:  #ffffff;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── Screens ─────────────────────────────────────────────────────────── */
+    .screen { display: none; width: 100%; max-width: 860px; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+    /* ── Lobby ───────────────────────────────────────────────────────────── */
+    .pin-box {
+      background: var(--white);
+      color: var(--purple-dark);
+      border-radius: 16px;
+      padding: 24px 48px;
+      text-align: center;
+    }
+    .pin-box .label { font-size: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; opacity: .6; }
+    .pin-box .pin   { font-size: 4rem; font-weight: 900; letter-spacing: 8px; }
+    .pin-box .url   { font-size: .85rem; opacity: .5; margin-top: 4px; }
+
+    .player-list {
+      background: rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px 28px;
+      width: 100%;
+      min-height: 80px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-content: flex-start;
+    }
+    .player-chip {
+      background: rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-weight: 700;
+      font-size: .95rem;
+      animation: pop .2s ease;
+    }
+    @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* ── Question ────────────────────────────────────────────────────────── */
+    .timer-bar-wrap {
+      width: 100%;
+      height: 14px;
+      background: rgba(255,255,255,.2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%;
+      background: var(--white);
+      border-radius: 999px;
+      transition: width 1s linear, background .3s;
+    }
+    .timer-bar.urgent { background: #ff4444; }
+
+    .q-meta {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-size: .9rem;
+      opacity: .75;
+    }
+
+    .question-text {
+      background: rgba(255,255,255,.15);
+      border-radius: 16px;
+      padding: 28px 36px;
+      font-size: clamp(1.3rem, 2.5vw, 2rem);
+      font-weight: 800;
+      text-align: center;
+      width: 100%;
+      line-height: 1.3;
+    }
+
+    .answer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+    }
+    .answer-btn {
+      border: none;
+      border-radius: 12px;
+      padding: 22px 18px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--white);
+      cursor: default;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: opacity .3s;
+    }
+    .answer-btn .shape { font-size: 1.4rem; flex-shrink: 0; }
+    .answer-btn:nth-child(1) { background: var(--red); }
+    .answer-btn:nth-child(2) { background: var(--blue); }
+    .answer-btn:nth-child(3) { background: var(--yellow); }
+    .answer-btn:nth-child(4) { background: var(--green); }
+    .answer-btn.wrong { opacity: .35; }
+    .answer-btn.correct { outline: 4px solid var(--white); }
+
+    .question-image {
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: rgba(255,255,255,.9);
+    }
+
+    .answer-counter {
+      font-size: 1.1rem;
+      opacity: .8;
+    }
+
+    /* ── Leaderboard ─────────────────────────────────────────────────────── */
+    .leaderboard { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+    .lb-row {
+      background: rgba(255,255,255,.15);
+      border-radius: 12px;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      animation: slideIn .3s ease both;
+    }
+    .lb-row:nth-child(1) { background: rgba(255,215,0,.35); font-size: 1.35rem; }
+    .lb-row:nth-child(2) { background: rgba(192,192,192,.3); }
+    .lb-row:nth-child(3) { background: rgba(205,127,50,.3); }
+    @keyframes slideIn { from { transform: translateX(-30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .lb-row .rank { width: 32px; text-align: center; font-size: 1.3em; }
+    .lb-row .lb-name { flex: 1; }
+    .lb-row .lb-score { opacity: .8; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      background: var(--white);
+      color: var(--purple-dark);
+      border: none;
+      border-radius: 12px;
+      padding: 16px 48px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .1s, opacity .2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn:hover  { transform: scale(1.04); }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .4; cursor: default; transform: none; }
+
+    h1 { font-size: 2rem; font-weight: 900; text-align: center; }
+    h2 { font-size: 1.5rem; font-weight: 800; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen active">
+    <h1>Quiz – Host</h1>
+    <div class="pin-box">
+      <div class="label">Game PIN</div>
+      <div class="pin" id="pin-display">----</div>
+      <div class="url" id="url-display" style="display:none"></div>
+    </div>
+    <div id="qr-wrap" style="display:flex;flex-direction:column;align-items:center;gap:10px;margin:16px 0">
+      <div id="qr-code" style="background:#fff;padding:12px;border-radius:12px;display:inline-block"></div>
+      <div style="font-size:.85rem;opacity:.6">Scan QR code → go to player.html</div>
+    </div>
+    <div class="player-list" id="player-list">
+      <span style="opacity:.5">Waiting for players…</span>
+    </div>
+    <button class="btn" id="btn-start" disabled>Start game</button>
+    <button class="btn" id="btn-resume" style="display:none;background:rgba(255,255,255,.7)">Resume game</button>
+  </div>
+
+  <!-- QUESTION -->
+  <div id="screen-question" class="screen">
+    <div class="timer-bar-wrap" style="width:100%">
+      <div class="timer-bar" id="timer-bar"></div>
+    </div>
+    <div class="q-meta">
+      <span id="q-counter"></span>
+      <span id="timer-display"></span>
+    </div>
+    <img id="question-image" class="question-image" style="display:none" referrerpolicy="no-referrer" />
+    <div class="question-text" id="question-text"></div>
+    <div class="answer-grid" id="answer-grid"></div>
+    <div class="answer-counter" id="answer-counter">0 / 0 answered</div>
+  </div>
+
+  <!-- RESULT (after each question) -->
+  <div id="screen-result" class="screen">
+    <h2 id="result-title">Result</h2>
+    <img id="result-image" class="question-image" style="display:none" referrerpolicy="no-referrer" />
+    <div class="answer-grid" id="result-grid"></div>
+    <button class="btn" id="btn-next">Next</button>
+  </div>
+
+  <!-- TOP 5 (every 5 questions) -->
+  <div id="screen-top5" class="screen">
+    <h1>🏅 Top 5</h1>
+    <div class="leaderboard" id="top5-leaderboard"></div>
+    <button class="btn" id="btn-top5-next">Next</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="screen">
+    <h1>🏆 Final Results</h1>
+    <div class="leaderboard" id="final-leaderboard"></div>
+    <button class="btn" id="btn-restart">New game</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- PIN display & QR code – runs immediately, no module system needed -->
+  <script>
+    (function () {
+      function genPin() {
+        return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join('');
+      }
+      const stored = localStorage.getItem('quiz-host-pin');
+      const pin    = (stored && /^\d+$/.test(stored)) ? stored : genPin();
+      localStorage.setItem('quiz-host-pin', pin);
+
+      document.getElementById('pin-display').textContent = pin;
+
+      const joinUrl = location.href.replace('host.html', 'player.html');
+      document.getElementById('url-display').textContent = joinUrl;
+
+      const qrWrap = document.getElementById('qr-code');
+      new QRCode(qrWrap, {
+        text:         joinUrl,
+        width:        180,
+        height:       180,
+        colorDark:    '#000000',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    })();
+  </script>
+
+  <script>
+    // ── Firebase ──────────────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyAPeGzcZ_aKwt3kIO7PwwPE8JQj46iu_5U",
+      authDomain:        "happyhour-quiz.firebaseapp.com",
+      databaseURL:       "https://happyhour-quiz-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId:         "happyhour-quiz",
+      storageBucket:     "happyhour-quiz.firebasestorage.app",
+      messagingSenderId: "432591844207",
+      appId:             "1:432591844207:web:85806de47546bfdaa0ae9a",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ── Constants & State ───────────────────────────────────────────────────
+    const SHAPES     = ['▲', '◆', '●', '■'];
+    const ROUND_SIZE = 10;
+    const MAX_PTS    = 1000;
+    const MIN_PTS    = 100;
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    const state = {
+      pin:           null,
+      gameRef:       null,
+      playersRef:    null,
+      broadcastRef:  null,
+      players:       new Map(),   // uid → player object
+      questions:     [],
+      qIndex:        0,
+      timeLeft:      0,
+      totalTime:     0,
+      timerInterval: null,
+      revealed:      false,
+      savedScores:   new Map(),
+      onReveal:      null,
+    };
+
+    // ── Questions ─────────────────────────────────────────────────────────────
+    const ALL_QUESTIONS = [
+      { question: "Which country has won the FIFA World Cup the most times?", options: ["Germany", "Italy", "Argentina", "Brazil"], correctIndex: 3, timeLimit: 45, explanation: "Brazil has won 5 World Cups (1958, 1962, 1970, 1994, 2002) — more than any other nation." },
+      { question: "Who is the all-time leading scorer in FIFA World Cup history?", options: ["Ronaldo (Brazil)", "Miroslav Klose", "Gerd Müller", "Lionel Messi"], correctIndex: 3, timeLimit: 45, explanation: "Lionel Messi holds the record with 18 World Cup goals (2006–2026), surpassing Miroslav Klose's former record of 16 goals." },
+      { question: "In which country was the first FIFA World Cup held?", options: ["Brazil", "France", "Uruguay", "Italy"], correctIndex: 2, timeLimit: 45, explanation: "The inaugural World Cup was held in Uruguay in 1930. Uruguay also won the tournament." },
+      { question: "Which team won the 2022 FIFA World Cup in Qatar?", options: ["France", "Brazil", "Croatia", "Argentina"], correctIndex: 3, timeLimit: 45, explanation: "Argentina beat France 4–2 on penalties after a thrilling 3–3 draw." },
+      { question: "Who scored the most goals in a single World Cup?", options: ["Gerd Müller (1970)", "Just Fontaine (1958)", "Ronaldo (2002)", "Sándor Kocsis (1954)"], correctIndex: 1, timeLimit: 45, explanation: "Just Fontaine of France scored 13 goals at the 1958 World Cup in Sweden — a record that still stands." },
+      { question: "England won the World Cup in 1966. Who did they beat in the final?", options: ["Portugal", "USSR", "West Germany", "Brazil"], correctIndex: 2, timeLimit: 45, explanation: "England beat West Germany 4–2 at Wembley. Geoff Hurst scored a hat-trick." },
+      { question: "Which goalkeeper holds the record for most clean sheets in World Cup history?", options: ["Iker Casillas", "Peter Shilton", "Manuel Neuer", "Dino Zoff"], correctIndex: 1, timeLimit: 45, explanation: "Peter Shilton (England, 1982–1990) and Fabien Barthez (France, 1998–2006) share the record with 10 clean sheets each. Iker Casillas holds the separate record for most penalties saved (2) in open play." },
+      { question: "The 'Hand of God' goal was scored by Diego Maradona against which team?", options: ["Germany", "England", "Brazil", "Belgium"], correctIndex: 1, timeLimit: 45, explanation: "Maradona's infamous handball came in the 1986 quarter-final against England." },
+      { question: "Which World Cup saw the introduction of VAR for the first time?", options: ["Brazil 2014", "Russia 2018", "South Africa 2010", "Qatar 2022"], correctIndex: 1, timeLimit: 45, explanation: "VAR was used for the first time at the 2018 World Cup in Russia." },
+      { question: "Which player won the Golden Ball at both the 2014 and 2022 World Cups?", options: ["Cristiano Ronaldo", "Neymar", "Lionel Messi", "Kylian Mbappé"], correctIndex: 2, timeLimit: 45, explanation: "Lionel Messi won the Golden Ball in 2014 and again in 2022 when he finally lifted the trophy." },
+      { question: "Which country hosted the 2014 FIFA World Cup?", options: ["South Africa", "Russia", "Brazil", "Germany"], correctIndex: 2, timeLimit: 45, explanation: "Brazil hosted. Germany won, beating Argentina 1–0 in the final thanks to Mario Götze." },
+      { question: "Who scored the famous 'Goal of the Century' at the 1986 World Cup?", options: ["Pelé", "Ronaldo", "Diego Maradona", "Michel Platini"], correctIndex: 2, timeLimit: 45, explanation: "Maradona dribbled past five England players and the goalkeeper before scoring." },
+      { question: "Which nation won the very first FIFA World Cup in 1930?", options: ["Argentina", "Uruguay", "Brazil", "USA"], correctIndex: 1, timeLimit: 45, explanation: "Uruguay beat Argentina 4–2 in the final on home soil in Montevideo." },
+      { question: "How many times has Germany (including West Germany) won the World Cup?", options: ["3", "4", "5", "2"], correctIndex: 1, timeLimit: 45, explanation: "Germany has won 4 World Cups: 1954, 1974, 1990 and 2014." },
+      { question: "Which World Cup final ended 3–3 after extra time before going to penalties?", options: ["2006 Italy vs France", "2010 Spain vs Netherlands", "2022 Argentina vs France", "1994 Brazil vs Italy"], correctIndex: 2, timeLimit: 45, explanation: "The 2022 final finished 3–3. Argentina won 4–2 on penalties." },
+      { question: "Who was top scorer (Golden Boot) at the 2018 World Cup in Russia?", options: ["Cristiano Ronaldo", "Harry Kane", "Kylian Mbappé", "Antoine Griezmann"], correctIndex: 1, timeLimit: 45, explanation: "Harry Kane won the Golden Boot with 6 goals, including a hat-trick against Panama." },
+      { question: "At which World Cup did South Korea sensationally reach the semi-finals?", options: ["1998", "2002", "2006", "2010"], correctIndex: 1, timeLimit: 45, explanation: "South Korea co-hosted the 2002 World Cup with Japan and finished 4th." },
+      { question: "Which country suffered the biggest upset, losing 7–1 in a semi-final?", options: ["Argentina", "France", "Brazil", "Italy"], correctIndex: 2, timeLimit: 45, explanation: "Brazil were demolished 7–1 by Germany in the 2014 semi-final — the 'Mineirazo'." },
+      { question: "Who won the Golden Boot at the 2022 World Cup in Qatar?", options: ["Lionel Messi", "Kylian Mbappé", "Olivier Giroud", "Julián Álvarez"], correctIndex: 1, timeLimit: 45, explanation: "Kylian Mbappé won the Golden Boot with 8 goals, including a hat-trick in the final." },
+      { question: "In which year did France win their first FIFA World Cup?", options: ["1994", "1998", "2002", "2006"], correctIndex: 1, timeLimit: 45, explanation: "France won their first World Cup in 1998 on home soil, beating Brazil 3–0 in the final." },
+      { question: "How many teams participate in the 2026 FIFA World Cup?", options: ["32", "40", "48", "56"], correctIndex: 2, timeLimit: 45, explanation: "The 2026 World Cup expanded to 48 teams, up from 32." },
+      { question: "Which three countries are co-hosting the 2026 FIFA World Cup?", options: ["USA, Brazil & Mexico", "USA, Canada & Mexico", "Canada, Mexico & Argentina", "USA, Canada & Colombia"], correctIndex: 1, timeLimit: 45, explanation: "The USA, Canada and Mexico are the three co-hosts of the 2026 World Cup." },
+      { question: "How many groups are there in the 2026 FIFA World Cup group stage?", options: ["8", "10", "12", "16"], correctIndex: 2, timeLimit: 45, explanation: "With 48 teams, the 2026 World Cup has 12 groups of 4 teams each." },
+      { question: "At which stadium is the 2026 FIFA World Cup Final scheduled to take place?", options: ["Rose Bowl (Los Angeles)", "Estadio Azteca (Mexico City)", "MetLife Stadium (New Jersey)", "AT&T Stadium (Dallas)"], correctIndex: 2, timeLimit: 45, explanation: "The 2026 World Cup Final is held at MetLife Stadium in East Rutherford, New Jersey." },
+      { question: "How many total matches are played at the 2026 FIFA World Cup?", options: ["64", "80", "96", "104"], correctIndex: 3, timeLimit: 45, explanation: "The expanded 48-team format produces 104 matches in total." },
+      { question: "Which two Canadian cities are hosting 2026 FIFA World Cup matches?", options: ["Montreal & Ottawa", "Calgary & Edmonton", "Toronto & Vancouver", "Quebec City & Winnipeg"], correctIndex: 2, timeLimit: 45, explanation: "Toronto (BMO Field) and Vancouver (BC Place) are the two Canadian host cities." },
+      { question: "Which of the following is a host city for the 2026 FIFA World Cup?", options: ["London", "São Paulo", "Tokyo", "Los Angeles"], correctIndex: 3, timeLimit: 45, explanation: "Los Angeles (SoFi Stadium) is one of the 16 host cities for the 2026 World Cup." },
+      { question: "The 2026 FIFA World Cup Final is taking place in which metropolitan area?", options: ["Los Angeles", "Dallas", "Miami", "New York / New Jersey"], correctIndex: 3, timeLimit: 45, explanation: "MetLife Stadium, the Final venue, is located in East Rutherford, New Jersey — part of the New York metro area." },
+      { question: "How many teams advance from the group stage to the knockout rounds at the 2026 World Cup?", options: ["24", "28", "32", "36"], correctIndex: 2, timeLimit: 45, explanation: "The top two from each of the 12 groups (24) plus 8 best third-placed teams = 32 teams advance." },
+      { question: "In which year did West Germany win the legendary 'Miracle of Bern'?", options: ["1950", "1954", "1958", "1962"], correctIndex: 1, timeLimit: 45, explanation: "West Germany beat the heavily-favoured Hungary 3–2 in the 1954 final in Bern — the 'Miracle of Bern'." },
+      { question: "Who scored the winning goal for West Germany in the 1954 World Cup Final?", options: ["Fritz Walter", "Helmut Rahn", "Hans Schäfer", "Ottmar Walter"], correctIndex: 1, timeLimit: 45, explanation: "Helmut Rahn scored the 3–2 winner in the 84th minute against Hungary." },
+      { question: "Which country won the 2010 FIFA World Cup in South Africa?", options: ["Netherlands", "Germany", "Spain", "Argentina"], correctIndex: 2, timeLimit: 45, explanation: "Spain beat the Netherlands 1–0 thanks to Andrés Iniesta's extra-time winner." },
+      { question: "Who scored the only goal in the 2014 World Cup Final between Germany and Argentina?", options: ["Thomas Müller", "Toni Kroos", "André Schürrle", "Mario Götze"], correctIndex: 3, timeLimit: 45, explanation: "Mario Götze scored a stunning volley in extra time to give Germany a 1–0 victory." },
+      { question: "Which country won back-to-back World Cups in 1958 and 1962?", options: ["Germany", "Argentina", "Uruguay", "Brazil"], correctIndex: 3, timeLimit: 45, explanation: "Brazil won in Sweden (1958) and Chile (1962), with Pelé starring in both tournaments." },
+      { question: "Who was the top scorer of the 1970 World Cup in Mexico?", options: ["Pelé", "Gerd Müller", "Jairzinho", "Teófilo Cubillas"], correctIndex: 1, timeLimit: 45, explanation: "Gerd Müller scored 10 goals at the 1970 World Cup, winning the Golden Boot." },
+      { question: "Italy won the 1982 World Cup. Who was their top scorer?", options: ["Roberto Baggio", "Paolo Rossi", "Franco Baresi", "Dino Zoff"], correctIndex: 1, timeLimit: 45, explanation: "Paolo Rossi scored 6 goals including a hat-trick vs. Brazil, winning the Golden Boot and the Golden Ball." },
+      { question: "Which nation has appeared in the most World Cup finals?", options: ["Germany", "Brazil", "Italy", "Argentina"], correctIndex: 0, timeLimit: 45, explanation: "Germany (including West Germany) has appeared in 8 World Cup finals — more than any other nation." },
+      { question: "Who was the captain of Argentina when they won the 2022 World Cup?", options: ["Sergio Agüero", "Ángel Di María", "Lionel Messi", "Rodrigo De Paul"], correctIndex: 2, timeLimit: 45, explanation: "Lionel Messi captained Argentina to glory and also won the Golden Ball as best player." },
+      { question: "In which World Cup did Zinedine Zidane famously headbutt Marco Materazzi?", options: ["1998", "2002", "2006", "2010"], correctIndex: 2, timeLimit: 45, explanation: "Zidane headbutted Materazzi in the 2006 final and was sent off. France lost on penalties to Italy." },
+      { question: "Which player scored a hat-trick in the 2022 World Cup Final?", options: ["Lionel Messi", "Julián Álvarez", "Antoine Griezmann", "Kylian Mbappé"], correctIndex: 3, timeLimit: 45, explanation: "Kylian Mbappé scored a second-half hat-trick to bring France back from 2–0 down, but Argentina ultimately won on penalties." },
+      { question: "Which was the first African nation to reach the World Cup semi-finals?", options: ["Nigeria", "Cameroon", "Senegal", "Morocco"], correctIndex: 3, timeLimit: 45, explanation: "Morocco became the first African (and Arab) team to reach the World Cup semi-finals at Qatar 2022." },
+      { question: "How many times has Italy won the FIFA World Cup?", options: ["2", "3", "4", "5"], correctIndex: 2, timeLimit: 45, explanation: "Italy have won the World Cup four times: 1934, 1938, 1982 and 2006." },
+      { question: "Which French player hit the crossbar in the 2006 World Cup Final penalty shootout, costing France the title?", options: ["Thierry Henry", "Zinedine Zidane", "David Trezeguet", "Franck Ribéry"], correctIndex: 2, timeLimit: 45, explanation: "Trezeguet's penalty rebounded off the underside of the crossbar and stayed out — the only miss of the shootout — giving Italy a 5–3 victory. (Zidane had already been sent off in extra time and could not take part.)" },
+      { question: "What was the score when Hungary beat El Salvador at the 1982 World Cup — the biggest win in World Cup history?", options: ["8–0", "9–0", "10–1", "10–0"], correctIndex: 2, timeLimit: 45, explanation: "Hungary thrashed El Salvador 10–1 in 1982 — the highest-scoring match in World Cup history." },
+      { question: "Which country hosted the 2006 FIFA World Cup?", options: ["France", "England", "Germany", "Spain"], correctIndex: 2, timeLimit: 45, explanation: "Germany hosted the 2006 World Cup, known as the 'Summer Fairy Tale'. Italy won the tournament." },
+    ];
+
+    // ── Yes / No Questions ────────────────────────────────────────────────────
+    const YES_NO_QUESTIONS = [
+      { question: "Was the first FIFA World Cup held in Uruguay in 1930?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! The inaugural World Cup was hosted and won by Uruguay in 1930." },
+      { question: "Did Brazil win the 2014 FIFA World Cup?", options: ["Yes", "No"], correctIndex: 1, type: "yesno", timeLimit: 45, explanation: "No — Germany won it, beating Argentina 1–0 in the final thanks to Mario Götze's extra-time goal." },
+      { question: "Did Argentina win the 2022 FIFA World Cup?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Argentina beat France 4–2 on penalties after a breathtaking 3–3 draw." },
+      { question: "Did France win the 2018 FIFA World Cup in Russia?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! France beat Croatia 4–2 in the final in Moscow." },
+      { question: "Is Just Fontaine's record of 13 goals in a single World Cup still unbeaten?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Fontaine scored 13 goals for France at the 1958 World Cup — a record that has stood for over 65 years." },
+      { question: "Did the USA host the 1994 FIFA World Cup?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! The 1994 World Cup was held in the USA. Brazil won, beating Italy on penalties." },
+      { question: "Did England win the 1966 FIFA World Cup?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! England beat West Germany 4–2 at Wembley. Geoff Hurst scored a famous hat-trick." },
+      { question: "Has Germany won more World Cups than Brazil?", options: ["Yes", "No"], correctIndex: 1, type: "yesno", timeLimit: 45, explanation: "No — Brazil has won 5 World Cups, Germany 4." },
+      { question: "Did Spain win the 2010 FIFA World Cup in South Africa?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Spain beat the Netherlands 1–0 thanks to Andrés Iniesta's extra-time winner." },
+      { question: "Was VAR first used at the 2014 World Cup in Brazil?", options: ["Yes", "No"], correctIndex: 1, type: "yesno", timeLimit: 45, explanation: "No — VAR was introduced at the 2018 World Cup in Russia." },
+      { question: "Did Maradona score the 'Hand of God' goal against England?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Maradona punched the ball into the net against England in the 1986 quarter-final and called it 'the Hand of God'." },
+      { question: "Did Italy win the 2006 FIFA World Cup?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Italy beat France 5–3 on penalties in the Berlin final after Zidane's infamous headbutt." },
+      { question: "Will the 2026 FIFA World Cup feature 48 teams?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! The 2026 World Cup expanded from 32 to 48 teams, hosted by USA, Canada and Mexico." },
+      { question: "Did Croatia reach the 2018 World Cup Final?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Croatia reached their first ever World Cup Final but lost 4–2 to France." },
+      { question: "Did South Korea reach the semi-finals at the 2002 World Cup?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Co-hosting with Japan, South Korea became the first Asian team to reach the World Cup semi-finals." },
+      { question: "Has Africa ever produced a FIFA World Cup winner?", options: ["Yes", "No"], correctIndex: 1, type: "yesno", timeLimit: 45, explanation: "No — no African nation has ever won the World Cup. Morocco came closest, reaching the semi-finals in 2022." },
+      { question: "Did Italy qualify for the 2022 FIFA World Cup in Qatar?", options: ["Yes", "No"], correctIndex: 1, type: "yesno", timeLimit: 45, explanation: "No — Italy were shockingly knocked out in the qualifying play-offs by North Macedonia." },
+      { question: "Did the 1994 World Cup Final go to a penalty shootout?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! It was the first World Cup Final decided on penalties. Brazil beat Italy 3–2 in the shootout." },
+      { question: "Did Pelé win three FIFA World Cups?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Pelé won in 1958, 1962 and 1970 — making him the only player ever to win three World Cups." },
+      { question: "Did Morocco reach the semi-finals of the 2022 FIFA World Cup?", options: ["Yes", "No"], correctIndex: 0, type: "yesno", timeLimit: 45, explanation: "Yes! Morocco became the first African and Arab nation to reach a World Cup semi-final." },
+    ];
+
+    // ── Image Questions ────────────────────────────────────────────────────────
+    const IMAGE_QUESTIONS = [
+      { question: "Which stadium is this?", image: "images/maracana.jpg", options: ["Estadio Azteca", "Maracanã", "Wembley", "Rose Bowl"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "The Maracanã in Rio de Janeiro hosted the 1950 and 2014 World Cup finals. In 1950 it held an estimated 200,000 spectators." },
+      { question: "Which stadium is this?", image: "images/azteca.jpg", options: ["Rose Bowl", "Maracanã", "Estadio Azteca", "Luzhniki"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "The Estadio Azteca in Mexico City hosted the 1970 and 1986 World Cup finals — the venue of Maradona's 'Hand of God' and 'Goal of the Century'." },
+      { question: "Which stadium is this?", image: "images/wembley.jpg", options: ["Wembley", "Old Trafford", "Allianz Arena", "San Siro"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "Wembley Stadium in London hosted the 1966 World Cup Final where England beat West Germany 4–2." },
+      { question: "Which stadium is this?", image: "images/metlife.jpg", options: ["Rose Bowl", "AT&T Stadium", "Estadio Azteca", "MetLife Stadium"], correctIndex: 3, type: "image", timeLimit: 45, explanation: "MetLife Stadium in East Rutherford, New Jersey (New York metro area) is the venue for the 2026 World Cup Final." },
+      { question: "Who is this football legend?", image: "images/pele.jpg", options: ["Garrincha", "Zico", "Pelé", "Romário"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "Pelé is the only player to win three World Cups (1958, 1962, 1970) and is widely regarded as the greatest of all time." },
+      { question: "Who is this football legend?", image: "images/maradona.jpg", options: ["Platini", "Gullit", "Maradona", "Zico"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "Diego Maradona led Argentina to the 1986 World Cup title, scoring both the 'Hand of God' and the 'Goal of the Century' against England." },
+      { question: "Who is this football legend?", image: "images/zidane.jpg", options: ["Henry", "Platini", "Cantona", "Zidane"], correctIndex: 3, type: "image", timeLimit: 45, explanation: "Zinedine Zidane won the 1998 World Cup with France and was awarded the 2006 Golden Ball, despite being sent off in the final for his headbutt." },
+      { question: "Who is this football legend?", image: "images/messi.jpg", options: ["Neymar", "Mbappé", "Ronaldo", "Messi"], correctIndex: 3, type: "image", timeLimit: 45, explanation: "Lionel Messi captained Argentina to the 2022 World Cup title and is the all-time leading scorer in World Cup history with 18 goals." },
+      { question: "Who is this football star?", image: "images/ronaldo.jpg", options: ["Cristiano Ronaldo", "Neymar", "Messi", "Benzema"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "Cristiano Ronaldo has appeared in 6 World Cups and is the only player ever to score in six different World Cup editions." },
+      { question: "What is this famous trophy?", image: "images/wc_trophy.jpg", options: ["Copa América", "FIFA World Cup", "UEFA Champions League", "Ballon d'Or"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "The FIFA World Cup Trophy, made of 18-carat gold, has been awarded to every World Cup winner since 1974." },
+      { question: "Who is this football legend?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/2019_-_Press_conferences_-_Day_1_ENX_6950_%2849019873887%29_%28cropped%29.jpg/330px-2019_-_Press_conferences_-_Day_1_ENX_6950_%2849019873887%29_%28cropped%29.jpg", options: ["Robinho", "Ronaldinho", "Kaká", "Adriano"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "Ronaldinho won the 2002 World Cup with Brazil and scored a stunning 40-yard free kick against England in the quarter-finals." },
+      { question: "Who is this football legend?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Johan_Cruijff_%281974%29.jpg/330px-Johan_Cruijff_%281974%29.jpg", options: ["Michel Platini", "Franz Beckenbauer", "Johan Cruyff", "Eusébio"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "Johan Cruyff was the face of 'Total Football' and led the Netherlands to the 1974 World Cup Final, where they lost to West Germany." },
+      { question: "Who is this football legend?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Franz_Beckenbauer_%281975%29.jpg/330px-Franz_Beckenbauer_%281975%29.jpg", options: ["Gerd Müller", "Franz Beckenbauer", "Karl-Heinz Rummenigge", "Uwe Seeler"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "Franz Beckenbauer won the World Cup both as captain (1974) and as manager (1990) — the only person ever to do so." },
+      { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Neymar_Junior_Brazil_V_Morocco_13_June_2026-40.jpg/330px-Neymar_Junior_Brazil_V_Morocco_13_June_2026-40.jpg", options: ["Neymar", "Vinicius Jr.", "Gabriel Jesus", "Richarlison"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "Neymar has represented Brazil at three World Cups (2014, 2018, 2022) and is Brazil's all-time leading scorer." },
+      { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Ofrenda_de_la_Liga_y_la_Champions-57-L.Mill%C3%A1n_%2852109310843%29_%28Luka_Modri%C4%87%29.jpg/330px-Ofrenda_de_la_Liga_y_la_Champions-57-L.Mill%C3%A1n_%2852109310843%29_%28Luka_Modri%C4%87%29.jpg", options: ["Ivan Rakitić", "Mario Mandžukić", "Luka Modrić", "Ivan Perišić"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "Luka Modrić captained Croatia to the 2018 World Cup Final and won the Golden Ball as the tournament's best player." },
+      { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Kylian_Mbappe_France_v_Senegal_16_June_2026-391_%28cropped%29.jpg/330px-Kylian_Mbappe_France_v_Senegal_16_June_2026-391_%28cropped%29.jpg", options: ["Antoine Griezmann", "Ousmane Dembélé", "Karim Benzema", "Kylian Mbappé"], correctIndex: 3, type: "image", timeLimit: 45, explanation: "Kylian Mbappé scored 8 goals at the 2022 World Cup, including a hat-trick in the final, and won the Golden Boot." },
+      { question: "What is this famous trophy?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Copa_america_trofeo.jpg/330px-Copa_america_trofeo.jpg", options: ["Copa América", "FIFA Confederations Cup", "UEFA Euro", "CONCACAF Gold Cup"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "The Copa América is the oldest international football tournament. Argentina won it in 2021, ending a 28-year wait for a major title before their 2022 World Cup triumph." },
+      { question: "What is this famous trophy?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Coupe_Henri_Delaunay_2017.jpg/330px-Coupe_Henri_Delaunay_2017.jpg", options: ["FIFA World Cup", "UEFA Champions League", "UEFA European Championship", "Copa América"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "The UEFA European Championship (Euro) trophy is awarded every four years. Germany and Spain have won it the most times, with 3 titles each." },
+      { question: "Which stadium is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/2018.06.17_Over_the_Rose_Bowl%2C_Pasadena%2C_CA_USA_0039_%2842855669451%29_%28cropped%29.jpg/330px-2018.06.17_Over_the_Rose_Bowl%2C_Pasadena%2C_CA_USA_0039_%2842855669451%29_%28cropped%29.jpg", options: ["Rose Bowl", "SoFi Stadium", "AT&T Stadium", "Allegiant Stadium"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "The Rose Bowl in Pasadena, California hosted the 1994 World Cup Final where Brazil beat Italy on penalties. It is also a 2026 World Cup venue." },
+      { question: "Which stadium is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/LuzhnikiStadium.jpg/330px-LuzhnikiStadium.jpg", options: ["Wembley", "Luzhniki", "Maracanã", "Estadio Azteca"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "Luzhniki Stadium in Moscow hosted the 2018 World Cup Final where France beat Croatia 4–2." },
+    ];
+
+    // ── Estimation Questions ──────────────────────────────────────────────────
+    // brackets: [within_A → 100%, within_B → 50%, within_C → 25%, else → 0]
+    const ESTIMATION_QUESTIONS = [
+      { question: "In what year was the first FIFA World Cup held?", correctAnswer: 1930, unit: "", type: "estimate", timeLimit: 45, brackets: [0, 5, 15], explanation: "The inaugural FIFA World Cup took place in Uruguay in 1930, with 13 nations competing." },
+      { question: "How many goals did Miroslav Klose score in total at FIFA World Cups?", correctAnswer: 16, unit: "goals", type: "estimate", timeLimit: 45, brackets: [1, 3, 5], explanation: "Miroslav Klose scored 16 goals across four World Cups (2002–2014) — a record later broken by Lionel Messi." },
+      { question: "How many teams participated in the 1930 FIFA World Cup?", correctAnswer: 13, unit: "teams", type: "estimate", timeLimit: 45, brackets: [1, 3, 5], explanation: "Only 13 nations made the long voyage to Uruguay for the first World Cup; many European sides refused." },
+      { question: "How many goals were scored in total at the 2018 FIFA World Cup in Russia?", correctAnswer: 169, unit: "goals", type: "estimate", timeLimit: 45, brackets: [5, 15, 30], explanation: "169 goals were scored across 64 matches at Russia 2018 — an average of 2.64 goals per game." },
+      { question: "In what year was FIFA founded?", correctAnswer: 1904, unit: "", type: "estimate", timeLimit: 45, brackets: [0, 5, 15], explanation: "FIFA was founded on 21 May 1904 in Paris, originally with just seven European member associations." },
+      { question: "How many goals did Just Fontaine score at the 1958 FIFA World Cup?", correctAnswer: 13, unit: "goals", type: "estimate", timeLimit: 45, brackets: [1, 3, 5], explanation: "Just Fontaine scored 13 goals in just 6 matches at the 1958 World Cup — an all-time single-tournament record." },
+      { question: "How many goals did Germany score against Brazil in the 2014 World Cup semi-final?", correctAnswer: 7, unit: "goals", type: "estimate", timeLimit: 45, brackets: [1, 2, 3], explanation: "Germany demolished Brazil 7–1 in Belo Horizonte — the 'Mineirazo'. Toni Kroos scored twice in two minutes." },
+      { question: "In what year did Brazil win their third FIFA World Cup?", correctAnswer: 1970, unit: "", type: "estimate", timeLimit: 45, brackets: [0, 4, 10], explanation: "Brazil won their third World Cup in Mexico in 1970 with a star-studded squad featuring Pelé, Jairzinho and Rivelino." },
+      { question: "How many World Cup finals has Germany (including West Germany) appeared in?", correctAnswer: 8, unit: "finals", type: "estimate", timeLimit: 45, brackets: [1, 2, 4], explanation: "Germany has reached 8 World Cup finals: winning in 1954, 1974, 1990 and 2014, and losing in 1966, 1982, 1986 and 2002." },
+      { question: "How many total matches are played at the 2026 FIFA World Cup?", correctAnswer: 104, unit: "matches", type: "estimate", timeLimit: 45, brackets: [2, 8, 16], explanation: "The expanded 48-team format at the 2026 World Cup produces 104 matches in total, up from 64 in previous editions." },
+      { question: "How many goals did Kylian Mbappé score at the 2022 FIFA World Cup?", correctAnswer: 8, unit: "goals", type: "estimate", timeLimit: 45, brackets: [1, 2, 4], explanation: "Mbappé scored 8 goals at Qatar 2022, including a hat-trick in the final, to win the Golden Boot." },
+      { question: "In what year did Pelé score his first FIFA World Cup goal?", correctAnswer: 1958, unit: "", type: "estimate", timeLimit: 45, brackets: [0, 4, 10], explanation: "Pelé scored his first World Cup goal in 1958 in Sweden at just 17, making him the youngest World Cup goalscorer at the time." },
+      { question: "How many players are in an official World Cup squad since 2022?", correctAnswer: 26, unit: "players", type: "estimate", timeLimit: 45, brackets: [1, 3, 6], explanation: "Since Qatar 2022, squads were expanded from 23 to 26 players to give coaches more tactical flexibility." },
+      { question: "How many points does a team earn for a win in the World Cup group stage?", correctAnswer: 3, unit: "points", type: "estimate", timeLimit: 45, brackets: [0, 1, 2], explanation: "A win is worth 3 points, a draw 1 point, and a loss 0 points in World Cup group stage play." },
+      { question: "In what year was the current FIFA World Cup trophy first awarded?", correctAnswer: 1974, unit: "", type: "estimate", timeLimit: 45, brackets: [0, 4, 10], explanation: "The current trophy (designed by Silvio Gazzaniga) was first awarded in 1974 when West Germany beat the Netherlands." },
+      { question: "How many nations competed at the 2022 FIFA World Cup in Qatar?", correctAnswer: 32, unit: "nations", type: "estimate", timeLimit: 45, brackets: [1, 3, 6], explanation: "32 nations competed at Qatar 2022 — the last World Cup with the traditional 32-team format before expansion to 48 in 2026." },
+      { question: "How many World Cup goals did Ronaldo (Brazil) score in total across all tournaments?", correctAnswer: 15, unit: "goals", type: "estimate", timeLimit: 45, brackets: [1, 3, 5], explanation: "Ronaldo Nazário scored 15 goals across four World Cups (1994, 1998, 2002, 2006), winning the Golden Boot in 2002 with 8 goals." },
+      { question: "In what year did Italy win their most recent FIFA World Cup?", correctAnswer: 2006, unit: "", type: "estimate", timeLimit: 45, brackets: [0, 3, 8], explanation: "Italy won their fourth World Cup in 2006 in Germany, beating France on penalties in Berlin after Zidane's infamous headbutt." },
+      { question: "How many World Cup goals did Gerd Müller (West Germany) score in total?", correctAnswer: 14, unit: "goals", type: "estimate", timeLimit: 45, brackets: [1, 3, 5], explanation: "Gerd 'Der Bomber' Müller scored 14 World Cup goals: 10 in 1970 (Golden Boot) and 4 in 1974 when West Germany won the title." },
+      { question: "How many goals were scored in total at the 1998 FIFA World Cup in France?", correctAnswer: 171, unit: "goals", type: "estimate", timeLimit: 45, brackets: [5, 15, 30], explanation: "171 goals were scored across 64 matches at France 1998 — an average of 2.67 goals per game. France won, beating Brazil 3–0 in the final." },
+    ];
+
+    // ── UI ────────────────────────────────────────────────────────────────────
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function getLeaderboard() {
+      return [...state.players.values()]
+        .sort((a, b) => b.score - a.score)
+        .map((p, i) => ({ rank: i + 1, name: p.name, score: p.score, correct: p.correct, delta: p.lastDelta }));
+    }
+
+    function buildLeaderboard(containerId, lb, limit = 8) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = '';
+      lb.slice(0, limit).forEach((entry, i) => {
+        const row = document.createElement('div');
+        row.className = 'lb-row';
+        row.style.animationDelay = `${i * 80}ms`;
+        const medal = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : entry.rank + '.';
+        const deltaHtml = entry.delta > 0
+          ? ` <span style="color:#4ade80;font-size:.85em;margin-left:4px">+${entry.delta}</span>`
+          : '';
+        row.innerHTML = `<span class="rank">${medal}</span><span class="lb-name">${entry.name}</span>${deltaHtml}<span class="lb-score">${entry.score} pts</span>`;
+        el.appendChild(row);
+      });
+    }
+
+    function updatePlayerList() {
+      const list = document.getElementById('player-list');
+      list.innerHTML = '';
+      if (state.players.size === 0) {
+        list.innerHTML = '<span style="opacity:.5">Waiting for players…</span>';
+      } else {
+        state.players.forEach(p => {
+          const chip = document.createElement('span');
+          chip.className = 'player-chip';
+          chip.textContent = p.name;
+          list.appendChild(chip);
+        });
+      }
+      document.getElementById('btn-start').disabled = state.players.size === 0;
+    }
+
+    function updateAnswerCounter() {
+      const answered = [...state.players.values()].filter(p => p.answered).length;
+      document.getElementById('answer-counter').textContent = `${answered} / ${state.players.size} answered`;
+    }
+
+    // ── Timer ─────────────────────────────────────────────────────────────────
+    function startTimer(seconds) {
+      clearInterval(state.timerInterval);
+      state.timeLeft  = seconds;
+      state.totalTime = seconds;
+      updateTimerUI();
+      state.timerInterval = setInterval(() => {
+        state.timeLeft--;
+        updateTimerUI();
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timerInterval);
+          if (state.onReveal) state.onReveal();
+        }
+      }, 1000);
+    }
+
+    function updateTimerUI() {
+      const pct = (state.timeLeft / state.totalTime) * 100;
+      const bar = document.getElementById('timer-bar');
+      bar.style.width = pct + '%';
+      bar.classList.toggle('urgent', state.timeLeft <= 5);
+      document.getElementById('timer-display').textContent = state.timeLeft + 's';
+    }
+
+    // ── Firebase communication ─────────────────────────────────────────────
+    function broadcast(data) {
+      if (!state.broadcastRef) return;
+      state.broadcastRef.set({ ...data, _ts: Date.now() });
+    }
+
+    function initFirebase() {
+      const pin = localStorage.getItem('quiz-host-pin');
+      state.pin          = pin;
+      state.gameRef      = db.ref('games/' + pin);
+      state.playersRef   = db.ref('games/' + pin + '/players');
+      state.broadcastRef = db.ref('games/' + pin + '/broadcast');
+
+      // Mark game as open + clean up stale broadcast
+      state.gameRef.update({ status: 'lobby', pin });
+      state.broadcastRef.remove();
+
+      // Listen for players joining / updating answers
+      state.playersRef.on('child_added', snap => {
+        const uid  = snap.key;
+        const data = snap.val();
+        if (!data || !data.name) return;
+        const saved = state.savedScores.get(data.name);
+        if (!state.players.has(uid)) {
+          state.players.set(uid, {
+            uid,
+            name:        data.name,
+            score:       saved ? saved.score   : 0,
+            correct:     saved ? saved.correct : 0,
+            answered:    false,
+            lastAnswer:  -1,
+            lastTimeLeft: 0,
+            lastDelta:   0,
+            lastEstimate: null,
+          });
+          updatePlayerList();
+        }
+      });
+
+      state.playersRef.on('child_changed', snap => {
+        const uid  = snap.key;
+        const data = snap.val();
+        if (!data) return;
+
+        const p = state.players.get(uid);
+        if (!p) return;
+
+        // Handle answer submission
+        if (data.answerPending && !p.answered && !state.revealed) {
+          p.answered     = true;
+          p.lastTimeLeft = data.timeRemaining || 0;
+          if (data.estimate !== undefined && data.estimate !== null) {
+            p.lastEstimate = data.estimate;
+            p.lastAnswer   = -1;
+          } else {
+            p.lastAnswer   = data.answerIndex;
+            p.lastEstimate = null;
+          }
+          // Acknowledge so we don't process twice
+          state.playersRef.child(uid).update({ answerPending: false });
+          updateAnswerCounter();
+          const answered = [...state.players.values()].filter(x => x.answered).length;
+          if (answered >= state.players.size && state.onReveal) state.onReveal();
+        }
+      });
+
+      state.playersRef.on('child_removed', snap => {
+        state.players.delete(snap.key);
+        updatePlayerList();
+      });
+
+      console.log('Host bereit, PIN:', pin);
+    }
+
+    // ── Game ──────────────────────────────────────────────────────────────────
+    function saveGameState() {
+      localStorage.setItem('quiz-game-state', JSON.stringify({
+        ts: Date.now(),
+        questions: state.questions,
+        nextQIndex: state.qIndex + 1,
+        playerScores: [...state.players.values()].map(p => ({ name: p.name, score: p.score, correct: p.correct })),
+      }));
+    }
+
+    function clearGameState() {
+      localStorage.removeItem('quiz-game-state');
+    }
+
+    function showCurrentQuestion() {
+      state.revealed = false;
+      const q = state.questions[state.qIndex];
+      const qtype = q.type || 'multiple';
+      state.players.forEach(p => { p.answered = false; p.lastAnswer = -1; p.lastDelta = 0; p.lastEstimate = null; });
+
+      showScreen('screen-question');
+      document.getElementById('q-counter').textContent      = `Question ${state.qIndex + 1} / ${state.questions.length}`;
+      document.getElementById('question-text').textContent  = q.question;
+      document.getElementById('answer-counter').textContent = `0 / ${state.players.size} answered`;
+
+      const imgEl = document.getElementById('question-image');
+      if (qtype === 'image' && q.image) { imgEl.src = q.image; imgEl.style.display = 'block'; }
+      else { imgEl.style.display = 'none'; imgEl.src = ''; }
+
+      const grid = document.getElementById('answer-grid');
+      grid.innerHTML = '';
+      if (qtype === 'estimate') {
+        const info = document.createElement('div');
+        info.style.cssText = 'grid-column:1/-1;background:rgba(255,255,255,.15);border-radius:12px;padding:28px;text-align:center;font-size:1.3rem;font-weight:700';
+        info.textContent = '🔢 Players are typing their estimates…';
+        grid.appendChild(info);
+      } else {
+        q.options.forEach((opt, i) => {
+          const btn = document.createElement('div');
+          btn.className = 'answer-btn';
+          btn.innerHTML = `<span class="shape">${SHAPES[i]}</span>${opt}`;
+          grid.appendChild(btn);
+        });
+      }
+
+      broadcast({ type: 'question', index: state.qIndex, total: state.questions.length, question: q.question, options: q.options || [], timeLimit: q.timeLimit, qtype, image: q.image || null });
+      startTimer(q.timeLimit);
+    }
+
+    function revealAnswer() {
+      if (state.revealed) return;
+      state.revealed = true;
+      clearInterval(state.timerInterval);
+
+      const q     = state.questions[state.qIndex];
+      const qtype = q.type || 'multiple';
+      state.players.forEach(p => {
+        if (!p.answered) { p.lastDelta = 0; return; }
+        if (qtype === 'estimate') {
+          if (p.lastEstimate === null || p.lastEstimate === undefined) {
+            p.lastDelta = 0;
+          } else {
+            const diff = Math.abs(p.lastEstimate - q.correctAnswer);
+            const [b0, b1, b2] = q.brackets || [0, 0, 0];
+            let mult = 0;
+            if      (diff <= b0) mult = 1.00;
+            else if (diff <= b1) mult = 0.50;
+            else if (diff <= b2) mult = 0.25;
+            if (mult > 0) {
+              const timePts = Math.max(MIN_PTS, Math.round(MAX_PTS * (p.lastTimeLeft / q.timeLimit)));
+              const pts     = Math.round(timePts * mult);
+              p.score  += pts;
+              p.correct++;
+              p.lastDelta = pts;
+            } else {
+              p.lastDelta = 0;
+            }
+          }
+        } else {
+          if (p.lastAnswer === q.correctIndex) {
+            const pts = Math.max(MIN_PTS, Math.round(MAX_PTS * (p.lastTimeLeft / q.timeLimit)));
+            p.score  += pts;
+            p.correct++;
+            p.lastDelta = pts;
+          } else {
+            p.lastDelta = 0;
+          }
+        }
+      });
+
+      const lb = getLeaderboard();
+      broadcast({ type: 'reveal', correctIndex: q.correctIndex, correctAnswer: q.correctAnswer, unit: q.unit || '', qtype, explanation: q.explanation, leaderboard: lb });
+
+      showScreen('screen-result');
+      const resultImgEl = document.getElementById('result-image');
+      if (qtype === 'image' && q.image) { resultImgEl.src = q.image; resultImgEl.style.display = 'block'; }
+      else { resultImgEl.style.display = 'none'; resultImgEl.src = ''; }
+
+      const resultGrid = document.getElementById('result-grid');
+      resultGrid.innerHTML = '';
+      if (qtype === 'estimate') {
+        const correctDiv = document.createElement('div');
+        correctDiv.style.cssText = 'grid-column:1/-1;background:rgba(38,137,12,.4);border-radius:12px;padding:20px;text-align:center;font-size:1.8rem;font-weight:900';
+        correctDiv.textContent = `✅ ${q.correctAnswer.toLocaleString()}${q.unit ? ' ' + q.unit : ''}`;
+        resultGrid.appendChild(correctDiv);
+        const guesses = [...state.players.values()]
+          .filter(p => p.lastEstimate !== null && p.lastEstimate !== undefined)
+          .sort((a, b) => b.lastDelta - a.lastDelta || Math.abs(a.lastEstimate - q.correctAnswer) - Math.abs(b.lastEstimate - q.correctAnswer));
+        if (guesses.length > 0) {
+          const guessWrap = document.createElement('div');
+          guessWrap.style.cssText = 'grid-column:1/-1;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto';
+          guesses.forEach(g => {
+            const diff = Math.abs(g.lastEstimate - q.correctAnswer);
+            const icon = g.lastDelta > 0 ? '🎯' : '❌';
+            const row  = document.createElement('div');
+            row.style.cssText = 'display:flex;justify-content:space-between;background:rgba(255,255,255,.1);border-radius:8px;padding:8px 14px;font-size:.95rem';
+            row.innerHTML = `<span>${g.name}</span><span>${g.lastEstimate.toLocaleString()} <span style="opacity:.6;font-size:.85em">(${diff > 0 ? '+/−' + diff.toLocaleString() : 'exact'})</span> ${icon}</span>`;
+            guessWrap.appendChild(row);
+          });
+          resultGrid.appendChild(guessWrap);
+        }
+      } else {
+        (q.options || []).forEach((opt, i) => {
+          const div = document.createElement('div');
+          div.className = `answer-btn ${i === q.correctIndex ? 'correct' : 'wrong'}`;
+          div.innerHTML = `<span class="shape">${SHAPES[i]}</span>${opt}`;
+          resultGrid.appendChild(div);
+        });
+      }
+
+      const isLast       = state.qIndex >= state.questions.length - 1;
+      const isTop5Moment = !isLast && (state.qIndex + 1) % 5 === 0;
+      if (isLast) { clearGameState(); } else { saveGameState(); }
+      document.getElementById('result-title').textContent = isLast ? 'Final Standings' : 'Correct Answer';
+
+      const nextBtn = document.getElementById('btn-next');
+      nextBtn.textContent = isLast ? 'Show final standings' : (isTop5Moment ? '🏅 Show Top 5' : 'Next question');
+      nextBtn.onclick = isLast ? showFinalResults : (isTop5Moment ? showTop5 : () => { state.qIndex++; showCurrentQuestion(); });
+    }
+
+    function showTop5() {
+      const lb = getLeaderboard();
+      broadcast({ type: 'top5', leaderboard: lb });
+      showScreen('screen-top5');
+      buildLeaderboard('top5-leaderboard', lb, 5);
+      document.getElementById('btn-top5-next').onclick = () => { state.qIndex++; showCurrentQuestion(); };
+    }
+
+    function showFinalResults() {
+      const lb = getLeaderboard();
+      broadcast({ type: 'gameover', leaderboard: lb });
+      showScreen('screen-gameover');
+      buildLeaderboard('final-leaderboard', lb);
+    }
+
+    // ── Wire up & init ────────────────────────────────────────────────────────
+    state.onReveal = revealAnswer;
+
+    document.getElementById('btn-start').addEventListener('click', () => {
+      clearGameState();
+      state.savedScores = new Map();
+      const multipleQs  = shuffle(ALL_QUESTIONS).slice(0, 10);
+      const yesnoQs     = shuffle(YES_NO_QUESTIONS).slice(0, 5);
+      const imageQs     = shuffle(IMAGE_QUESTIONS).slice(0, 5);
+      const estimQs     = shuffle(ESTIMATION_QUESTIONS).slice(0, 5);
+      state.questions   = [...multipleQs, ...yesnoQs, ...imageQs, ...estimQs];
+      state.qIndex      = 0;
+      state.players.forEach(p => { p.score = 0; p.correct = 0; p.lastDelta = 0; });
+      showCurrentQuestion();
+    });
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      if (state.gameRef) state.gameRef.remove();
+      localStorage.removeItem('quiz-host-pin');
+      localStorage.removeItem('quiz-game-state');
+      location.reload();
+    });
+
+    const _savedRaw = localStorage.getItem('quiz-game-state');
+    if (_savedRaw) {
+      try {
+        const _saved    = JSON.parse(_savedRaw);
+        const AGE_LIMIT = 6 * 60 * 60 * 1000;
+        if (!_saved.ts || Date.now() - _saved.ts > AGE_LIMIT) {
+          clearGameState();
+        } else {
+          state.savedScores = new Map(_saved.playerScores.map(p => [p.name, p]));
+          const btnResume   = document.getElementById('btn-resume');
+          btnResume.style.display = '';
+          btnResume.addEventListener('click', () => {
+            state.questions = _saved.questions;
+            state.qIndex    = _saved.nextQIndex;
+            state.players.forEach(p => {
+              const s = state.savedScores.get(p.name);
+              if (s) { p.score = s.score; p.correct = s.correct; }
+            });
+            showCurrentQuestion();
+          });
+        }
+      } catch (e) { clearGameState(); }
+    }
+
+    initFirebase();
+  </script>
+</body>
+</html>

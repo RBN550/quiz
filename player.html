@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Quiz – Play</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple-dark: #46178F;
+      --purple:      #8B2FC9;
+      --red:         #E21B3C;
+      --blue:        #1368CE;
+      --yellow:      #D89E00;
+      --green:       #26890C;
+      --white:       #ffffff;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      -webkit-tap-highlight-color: transparent;
+      overflow-y: auto;
+    }
+
+    /* ── Screens ─────────────────────────────────────────────────────────── */
+    .screen { display: none; width: 100%; max-width: 420px; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+
+    /* ── Join ────────────────────────────────────────────────────────────── */
+    .card {
+      background: rgba(255,255,255,.15);
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-radius: 12px;
+      background: rgba(255,255,255,.15);
+      color: var(--white);
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input::placeholder { color: rgba(255,255,255,.5); }
+    input:focus { border-color: var(--white); }
+
+    .error-msg {
+      background: rgba(226,27,60,.4);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: .9rem;
+      text-align: center;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      background: var(--white);
+      color: var(--purple-dark);
+      border: none;
+      border-radius: 12px;
+      padding: 18px;
+      width: 100%;
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: transform .1s, opacity .2s;
+    }
+    .btn:active { transform: scale(.96); }
+    .btn:disabled { opacity: .4; cursor: default; transform: none; }
+
+    /* ── Wait ────────────────────────────────────────────────────────────── */
+    .wait-icon {
+      font-size: 4rem;
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-12px); }
+    }
+    .wait-name {
+      font-size: 1.6rem;
+      font-weight: 900;
+    }
+    .wait-sub {
+      font-size: 1rem;
+      opacity: .7;
+    }
+
+    /* ── Answer buttons ──────────────────────────────────────────────────── */
+    .answer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      width: 100%;
+    }
+
+    #screen-answer.has-image .answer-btn {
+      aspect-ratio: 2 / 1;
+    }
+
+    .answer-btn {
+      border: none;
+      border-radius: 16px;
+      padding: 0;
+      cursor: pointer;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--white);
+      transition: transform .1s, opacity .3s, filter .3s;
+      user-select: none;
+      line-height: 1.2;
+      padding: 12px;
+      text-align: center;
+    }
+    .answer-btn:active { transform: scale(.93); }
+    .answer-btn .shape { font-size: 1.8rem; }
+    .answer-btn:nth-child(1) { background: var(--red); }
+    .answer-btn:nth-child(2) { background: var(--blue); }
+    .answer-btn:nth-child(3) { background: var(--yellow); }
+    .answer-btn:nth-child(4) { background: var(--green); }
+    .answer-btn:disabled { cursor: default; }
+    .answer-btn.selected { outline: 5px solid var(--white); }
+    .answer-btn.dimmed   { opacity: .35; filter: saturate(.4); }
+
+    /* ── Question text ─────────────────────────────────────────────────────── */
+    .question-text {
+      background: rgba(255,255,255,.15);
+      border-radius: 14px;
+      padding: 18px 20px;
+      font-size: clamp(1rem, 4vw, 1.3rem);
+      font-weight: 800;
+      text-align: center;
+      width: 100%;
+      line-height: 1.3;
+    }
+
+    /* ── Timer bar (compact for player) ─────────────────────────────────── */
+    .timer-bar-wrap {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,.2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .timer-bar {
+      height: 100%;
+      background: var(--white);
+      border-radius: 999px;
+      transition: width 1s linear, background .3s;
+    }
+    .timer-bar.urgent { background: #ff4444; }
+
+    /* ── Feedback ────────────────────────────────────────────────────────── */
+    .feedback-icon { font-size: 5rem; }
+    .feedback-title { font-size: 2rem; font-weight: 900; }
+    .feedback-points { font-size: 1.3rem; opacity: .85; }
+    .feedback-total  { font-size: 1rem; opacity: .65; }
+
+    /* ── Rank ────────────────────────────────────────────────────────────── */
+    .rank-badge {
+      background: rgba(255,255,255,.2);
+      border-radius: 16px;
+      padding: 14px 28px;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    /* ── Game over ───────────────────────────────────────────────────────── */
+    .final-score {
+      font-size: 2.5rem;
+      font-weight: 900;
+    }
+
+    /* ── Estimation input ────────────────────────────────────────────────── */
+    .estimate-wrap {
+      grid-column: 1 / -1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .estimate-label {
+      font-size: 1rem;
+      font-weight: 700;
+      opacity: .8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .estimate-input {
+      width: 100%;
+      padding: 20px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-radius: 12px;
+      background: rgba(255,255,255,.15);
+      color: var(--white);
+      font-size: 2rem;
+      font-weight: 800;
+      text-align: center;
+      outline: none;
+      transition: border-color .2s;
+      -moz-appearance: textfield;
+    }
+    .estimate-input::-webkit-inner-spin-button,
+    .estimate-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .estimate-input:focus { border-color: var(--white); }
+    .estimate-input::placeholder { color: rgba(255,255,255,.4); font-size: 1.2rem; font-weight: 400; }
+    .estimate-input:disabled { opacity: .4; }
+
+    /* ── Host-disconnected overlay ────────────────────────────────────────── */
+    #overlay-disconnected {
+      display: none; position: fixed; inset: 0;
+      background: rgba(70,23,143,.97); z-index: 100;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 24px; padding: 24px; text-align: center;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #reconnect-dots { font-size: 2rem; letter-spacing: 8px; animation: pulse 1.5s ease-in-out infinite; }
+
+    h1 { font-size: 1.8rem; font-weight: 900; text-align: center; }
+    h2 { font-size: 1.4rem; font-weight: 800; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- JOIN -->
+  <div id="screen-join" class="screen active">
+    <h1>Quiz</h1>
+    <div class="card">
+      <input id="input-pin"  type="tel"  placeholder="Enter game PIN"  maxlength="10" />
+      <input id="input-name" type="text" placeholder="Your nickname"      maxlength="20" />
+      <div class="error-msg" id="error-msg"></div>
+      <button class="btn" id="btn-join">Join</button>
+    </div>
+  </div>
+
+  <!-- WAITING FOR HOST -->
+  <div id="screen-wait" class="screen">
+    <div class="wait-icon">🎮</div>
+    <div class="wait-name" id="wait-name"></div>
+    <div class="wait-sub">Waiting for the host…</div>
+  </div>
+
+  <!-- ANSWERING -->
+  <div id="screen-answer" class="screen">
+    <div class="timer-bar-wrap">
+      <div class="timer-bar" id="timer-bar"></div>
+    </div>
+    <div class="question-text" id="question-text"></div>
+    <img id="question-image" style="display:none;width:100%;height:200px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,.9);" referrerpolicy="no-referrer" />
+    <div class="answer-grid" id="answer-grid"></div>
+  </div>
+
+  <!-- FEEDBACK (after answering) -->
+  <div id="screen-feedback" class="screen">
+    <div class="feedback-icon" id="feedback-icon"></div>
+    <div class="feedback-title" id="feedback-title"></div>
+    <div class="feedback-points" id="feedback-points"></div>
+    <div class="feedback-total" id="feedback-total"></div>
+  </div>
+
+  <!-- TOP 5 -->
+  <div id="screen-top5" class="screen">
+    <h1>🏅 Top 5</h1>
+    <div class="leaderboard" id="top5-leaderboard"></div>
+    <div class="rank-badge" id="top5-myrank"></div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="screen">
+    <h1>🏆 Game over!</h1>
+    <h2 id="gameover-name"></h2>
+    <div class="final-score" id="final-score"></div>
+    <div style="opacity:.7; font-size:.9rem">Total points</div>
+    <button class="btn">New game</button>
+  </div>
+
+  <!-- HOST DISCONNECTED OVERLAY -->
+  <div id="overlay-disconnected">
+    <div style="font-size:4rem">📡</div>
+    <h2>Connection lost</h2>
+    <p style="opacity:.75;max-width:280px">Trying to reconnect automatically…</p>
+    <div id="reconnect-dots">● ● ●</div>
+    <button class="btn">Leave game</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>
+    // ── Firebase ──────────────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyAPeGzcZ_aKwt3kIO7PwwPE8JQj46iu_5U",
+      authDomain:        "happyhour-quiz.firebaseapp.com",
+      databaseURL:       "https://happyhour-quiz-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId:         "happyhour-quiz",
+      storageBucket:     "happyhour-quiz.firebasestorage.app",
+      messagingSenderId: "432591844207",
+      appId:             "1:432591844207:web:85806de47546bfdaa0ae9a",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ── Constants & State ───────────────────────────────────────────────────
+    const SHAPES = ['▲', '◆', '●', '■'];
+
+    const state = {
+      myName:        '',
+      myUid:         null,
+      myScore:       0,
+      hasAnswered:   false,
+      timerInterval: null,
+      timeLeft:      0,
+      totalTime:     0,
+      connectedPin:  null,
+      playerRef:     null,
+      broadcastRef:  null,
+      lastBroadcastTs: 0,
+    };
+
+    // ── UI ────────────────────────────────────────────────────────────────────
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function buildLeaderboard(containerId, lb, limit, myName) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      el.innerHTML = '';
+      lb.slice(0, limit).forEach((entry, i) => {
+        const row = document.createElement('div');
+        row.className = 'lb-row' + (entry.name === myName ? ' highlight' : '');
+        row.style.animationDelay = `${i * 80}ms`;
+        const medal = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : entry.rank + '.';
+        row.innerHTML = `<span class="rank">${medal}</span><span class="lb-name">${entry.name}</span><span class="lb-score">${entry.score} pts</span>`;
+        el.appendChild(row);
+      });
+    }
+
+    // ── Timer ─────────────────────────────────────────────────────────────────
+    function startTimer(seconds, onEnd) {
+      clearInterval(state.timerInterval);
+      state.timeLeft  = seconds;
+      state.totalTime = seconds;
+      updateTimerUI();
+      state.timerInterval = setInterval(() => {
+        state.timeLeft--;
+        updateTimerUI();
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timerInterval);
+          if (onEnd) onEnd();
+        }
+      }, 1000);
+    }
+
+    function updateTimerUI() {
+      const pct = (state.timeLeft / state.totalTime) * 100;
+      const bar = document.getElementById('timer-bar');
+      if (bar) {
+        bar.style.width = pct + '%';
+        bar.classList.toggle('urgent', state.timeLeft <= 5);
+      }
+    }
+
+    // ── Firebase join ─────────────────────────────────────────────────────────
+    function doJoin() {
+      const pin  = document.getElementById('input-pin').value.trim();
+      const name = document.getElementById('input-name').value.trim();
+      document.getElementById('error-msg').classList.remove('visible');
+
+      if (!pin)  { showError('Please enter a PIN.');  return; }
+      if (!name) { showError('Please enter a name.'); return; }
+
+      state.myName = name;
+      state.myUid  = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+      const btnJoin = document.getElementById('btn-join');
+      btnJoin.disabled    = true;
+      btnJoin.textContent = 'Connecting…';
+
+      // Timeout fallback
+      state.joinTimeout = setTimeout(() => {
+        btnJoin.disabled    = false;
+        btnJoin.textContent = 'Join';
+        showError('Timeout. Please try again.');
+      }, 15000);
+
+      // Check if the game/PIN exists
+      const gameRef = db.ref('games/' + pin);
+      gameRef.once('value').then(snap => {
+        if (!snap.exists()) {
+          clearTimeout(state.joinTimeout);
+          btnJoin.disabled    = false;
+          btnJoin.textContent = 'Join';
+          showError('PIN not found. Please check and try again.');
+          return;
+        }
+
+        state.connectedPin = pin;
+        state.playerRef    = db.ref('games/' + pin + '/players/' + state.myUid);
+        state.broadcastRef = db.ref('games/' + pin + '/broadcast');
+
+        // Register player
+        state.playerRef.set({ name: state.myName, score: 0 }).then(() => {
+          clearTimeout(state.joinTimeout);
+          document.getElementById('wait-name').textContent = state.myName;
+          showScreen('screen-wait');
+          listenForBroadcasts();
+        }).catch(() => {
+          btnJoin.disabled    = false;
+          btnJoin.textContent = 'Join';
+          showError('Could not join. Please try again.');
+        });
+
+      }).catch(() => {
+        clearTimeout(state.joinTimeout);
+        btnJoin.disabled    = false;
+        btnJoin.textContent = 'Join';
+        showError('Connection error. Please try again.');
+      });
+    }
+
+    function listenForBroadcasts() {
+      if (!state.broadcastRef) return;
+      state.broadcastRef.on('value', snap => {
+        const data = snap.val();
+        if (!data) return;
+        // Ignore old messages (before we joined)
+        const ts = data._ts || 0;
+        if (ts <= state.lastBroadcastTs) return;
+        state.lastBroadcastTs = ts;
+        handleHostMsg(data);
+      });
+    }
+
+    // ── Answer submission ─────────────────────────────────────────────────────
+    function sendAnswer(index, clickedBtn) {
+      if (state.hasAnswered || !state.playerRef) return;
+      state.hasAnswered = true;
+      clearInterval(state.timerInterval);
+
+      state.playerRef.update({ answerIndex: index, timeRemaining: state.timeLeft, answerPending: true, estimate: null });
+
+      document.querySelectorAll('.answer-btn').forEach(b => {
+        b.disabled = true;
+        if (b === clickedBtn) b.classList.add('selected');
+        else                  b.classList.add('dimmed');
+      });
+
+      document.getElementById('feedback-icon').textContent   = '⏳';
+      document.getElementById('feedback-title').textContent  = 'Answer submitted!';
+      document.getElementById('feedback-points').textContent = 'Waiting for reveal…';
+      document.getElementById('feedback-total').textContent  = '';
+      showScreen('screen-feedback');
+    }
+
+    function sendEstimate(value, inp, sub) {
+      if (state.hasAnswered || !state.playerRef) return;
+      state.hasAnswered = true;
+      clearInterval(state.timerInterval);
+      inp.disabled = true;
+      sub.disabled = true;
+
+      state.playerRef.update({ estimate: value, timeRemaining: state.timeLeft, answerPending: true, answerIndex: null });
+
+      document.getElementById('feedback-icon').textContent   = '⏳';
+      document.getElementById('feedback-title').textContent  = 'Estimate submitted!';
+      document.getElementById('feedback-points').textContent = `Your guess: ${value.toLocaleString()}`;
+      document.getElementById('feedback-total').textContent  = 'Waiting for reveal…';
+      showScreen('screen-feedback');
+    }
+
+    // ── Game ──────────────────────────────────────────────────────────────────
+    function handleHostMsg(data) {
+      if (data.type === 'question') {
+        state.hasAnswered = false;
+        showQuestion(data);
+      }
+      if (data.type === 'reveal') {
+        clearInterval(state.timerInterval);
+        showFeedback(data);
+      }
+      if (data.type === 'top5') {
+        clearInterval(state.timerInterval);
+        showTop5(data);
+      }
+      if (data.type === 'gameover') {
+        clearInterval(state.timerInterval);
+        showGameover(data);
+      }
+    }
+
+    function showQuestion(data) {
+      showScreen('screen-answer');
+      const qtype = data.qtype || 'multiple';
+      document.getElementById('question-text').textContent = data.question || '';
+      const imgEl = document.getElementById('question-image');
+      if (qtype === 'image' && data.image) { imgEl.src = data.image; imgEl.style.display = 'block'; }
+      else { imgEl.style.display = 'none'; imgEl.src = ''; }
+      const grid = document.getElementById('answer-grid');
+      grid.innerHTML = '';
+
+      if (qtype === 'estimate') {
+        grid.style.gridTemplateColumns = '1fr';
+        const wrap  = document.createElement('div');
+        wrap.className = 'estimate-wrap';
+        const lbl   = document.createElement('div');
+        lbl.className   = 'estimate-label';
+        lbl.textContent = '🔢 Type your number estimate';
+        const inp   = document.createElement('input');
+        inp.type        = 'number';
+        inp.className   = 'estimate-input';
+        inp.placeholder = 'Enter a number…';
+        inp.id          = 'estimate-input';
+        inp.inputMode   = 'numeric';
+        const sub   = document.createElement('button');
+        sub.className   = 'btn';
+        sub.textContent = 'Submit';
+        const doSubmit = () => {
+          const val = parseFloat(inp.value);
+          if (!isNaN(val)) sendEstimate(val, inp, sub);
+        };
+        sub.addEventListener('click', doSubmit);
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') doSubmit(); });
+        wrap.appendChild(lbl);
+        wrap.appendChild(inp);
+        wrap.appendChild(sub);
+        grid.appendChild(wrap);
+        startTimer(data.timeLimit, () => {
+          inp.disabled = true;
+          sub.disabled = true;
+        });
+      } else {
+        grid.style.gridTemplateColumns = '';
+        data.options.forEach((opt, i) => {
+          const btn = document.createElement('button');
+          btn.className = 'answer-btn';
+          btn.innerHTML = `<span class="shape">${SHAPES[i]}</span><span>${opt}</span>`;
+          btn.addEventListener('click', () => sendAnswer(i, btn));
+          grid.appendChild(btn);
+        });
+        startTimer(data.timeLimit);
+      }
+    }
+
+    function showFeedback(data) {
+      if (!state.hasAnswered) {
+        document.getElementById('feedback-icon').textContent   = '⏱️';
+        document.getElementById('feedback-title').textContent  = "Time's up!";
+        document.getElementById('feedback-points').textContent = '0 points';
+        document.getElementById('feedback-total').textContent  = '';
+        state.hasAnswered = true;
+      } else {
+        const me    = (data.leaderboard || []).find(p => p.name === state.myName);
+        const delta = me ? me.delta : 0;
+        state.myScore = me ? me.score : state.myScore;
+
+        if (data.qtype === 'estimate') {
+          const correct   = data.correctAnswer;
+          const unitStr   = data.unit ? ' ' + data.unit : '';
+          const gotPoints = delta > 0;
+          document.getElementById('feedback-icon').textContent   = gotPoints ? '🎯' : '💫';
+          document.getElementById('feedback-title').textContent  = correct !== undefined
+            ? `Answer: ${Number(correct).toLocaleString()}${unitStr}`
+            : (gotPoints ? 'Close enough!' : 'Too far off!');
+          document.getElementById('feedback-points').textContent = gotPoints ? `+${delta} points` : '0 points';
+          document.getElementById('feedback-total').textContent  = `Total: ${state.myScore} points`;
+        } else {
+          const isCorrect = delta > 0;
+          document.getElementById('feedback-icon').textContent   = isCorrect ? '✅' : '❌';
+          document.getElementById('feedback-title').textContent  = isCorrect ? 'Correct!' : 'Wrong!';
+          document.getElementById('feedback-points').textContent = isCorrect ? `+${delta} points` : '0 points';
+          document.getElementById('feedback-total').textContent  = `Total: ${state.myScore} points`;
+        }
+      }
+      showScreen('screen-feedback');
+    }
+
+    function showTop5(data) {
+      const lb = data.leaderboard || [];
+      buildLeaderboard('top5-leaderboard', lb, 5, state.myName);
+      const me     = lb.find(p => p.name === state.myName);
+      const rankEl = document.getElementById('top5-myrank');
+      rankEl.textContent = me ? `You: Rank ${me.rank} · ${me.score} pts` : '';
+      showScreen('screen-top5');
+    }
+
+    function showGameover(data) {
+      const me = (data.leaderboard || []).find(p => p.name === state.myName);
+      if (me) state.myScore = me.score;
+      document.getElementById('gameover-name').textContent = state.myName;
+      document.getElementById('final-score').textContent   = state.myScore + ' points';
+      showScreen('screen-gameover');
+    }
+
+    // ── Wire up ────────────────────────────────────────────────────────────────
+    document.getElementById('btn-join').addEventListener('click', doJoin);
+    document.getElementById('input-pin').addEventListener('keydown',  e => e.key === 'Enter' && doJoin());
+    document.getElementById('input-name').addEventListener('keydown', e => e.key === 'Enter' && doJoin());
+
+    document.querySelector('#screen-gameover .btn').addEventListener('click', () => location.reload());
+    document.querySelector('#overlay-disconnected .btn').addEventListener('click', () => location.reload());
+  </script>
+</body>
+</html>

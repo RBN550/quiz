@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Worldcup Quiz</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple-dark: #46178F;
+      --purple:      #8B2FC9;
+      --white:       #ffffff;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-shadow: 0 2px 12px rgba(0,0,0,.3);
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      opacity: .7;
+      margin-top: -28px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 200px;
+      height: 200px;
+      border: none;
+      border-radius: 24px;
+      font-family: inherit;
+      font-size: 1.4rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      text-decoration: none;
+      color: var(--white);
+      box-shadow: 0 6px 24px rgba(0,0,0,.3);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0,0,0,.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    }
+
+    .btn-host {
+      background: linear-gradient(135deg, #1368CE, #0e4fa3);
+    }
+
+    .btn-player {
+      background: linear-gradient(135deg, #E21B3C, #b01530);
+    }
+
+    .btn .icon {
+      font-size: 2.6rem;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Worldcup Quiz</h1>
+  <p class="subtitle">Choose your role</p>
+
+  <div class="btn-group">
+    <a class="btn btn-host" href="host.html">
+      <span class="icon">🎤</span>
+      Host
+    </a>
+    <a class="btn btn-player" href="player.html">
+      <span class="icon">🎮</span>
+      Player
+    </a>
+  </div>
+</body>
+</html>
