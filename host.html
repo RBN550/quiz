@@ -203,6 +203,7 @@
     </div>
     <button class="btn" id="btn-start" disabled>Start game</button>
     <button class="btn" id="btn-resume" style="display:none;background:rgba(255,255,255,.7)">Resume game</button>
+    <button class="btn" id="btn-kick-all" style="display:none;background:rgba(226,27,60,.75);margin-top:4px">Kick all players</button>
   </div>
 
   <!-- QUESTION -->
@@ -482,6 +483,7 @@
         });
       }
       document.getElementById('btn-start').disabled = state.players.size === 0;
+      document.getElementById('btn-kick-all').style.display = state.players.size === 0 ? 'none' : '';
     }
 
     function updateAnswerCounter() {
@@ -756,6 +758,13 @@
       state.qIndex      = 0;
       state.players.forEach(p => { p.score = 0; p.correct = 0; p.lastDelta = 0; });
       showCurrentQuestion();
+    });
+
+    document.getElementById('btn-kick-all').addEventListener('click', () => {
+      if (!confirm('Kick ALL players from the lobby?')) return;
+      if (state.playersRef) state.playersRef.remove();
+      state.players.clear();
+      updatePlayerList();
     });
 
     document.getElementById('btn-restart').addEventListener('click', () => {
