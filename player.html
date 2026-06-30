@@ -347,6 +347,7 @@
       playerRef:     null,
       broadcastRef:  null,
       lastBroadcastTs: 0,
+      currentQIdx:   -1,
     };
 
     // ── UI ────────────────────────────────────────────────────────────────────
@@ -478,7 +479,7 @@
       state.hasAnswered = true;
       clearInterval(state.timerInterval);
 
-      state.playerRef.update({ answerIndex: index, timeRemaining: state.timeLeft, answerPending: true, estimate: null });
+      state.playerRef.update({ answerIndex: index, timeRemaining: state.timeLeft, answerPending: true, qIdx: state.currentQIdx, estimate: null });
 
       document.querySelectorAll('.answer-btn').forEach(b => {
         b.disabled = true;
@@ -500,7 +501,7 @@
       inp.disabled = true;
       sub.disabled = true;
 
-      state.playerRef.update({ estimate: value, timeRemaining: state.timeLeft, answerPending: true, answerIndex: null });
+      state.playerRef.update({ estimate: value, timeRemaining: state.timeLeft, answerPending: true, qIdx: state.currentQIdx, answerIndex: null });
 
       document.getElementById('feedback-icon').textContent   = '⏳';
       document.getElementById('feedback-title').textContent  = 'Estimate submitted!';
@@ -530,6 +531,7 @@
     }
 
     function showQuestion(data) {
+      state.currentQIdx = data.index;
       showScreen('screen-answer');
       const qtype = data.qtype || 'multiple';
       document.getElementById('question-text').textContent = data.question || '';

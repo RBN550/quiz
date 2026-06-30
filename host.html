@@ -501,6 +501,7 @@
         updateTimerUI();
         if (state.timeLeft <= 0) {
           clearInterval(state.timerInterval);
+          console.log('[timer] Zeit abgelaufen → revealAnswer()');
           revealAnswer();
         }
       }, 1000);
@@ -558,13 +559,17 @@
       state.playersRef.on('child_changed', snap => {
         const uid  = snap.key;
         const data = snap.val();
+        console.log('[child_changed]', uid, JSON.stringify(data), '| host qIndex:', state.qIndex, '| revealed:', state.revealed);
         if (!data) return;
 
         const p = state.players.get(uid);
-        if (!p) return;
+        if (!p) { console.warn('[child_changed] unknown uid', uid); return; }
 
         // Handle answer submission
-        if (data.answerPending && !p.answered && !state.revealed) {
+        if (data.answerPending) {
+          console.log('[child_changed] answerPending=true | data.qIdx:', data.qIdx, '(type:', typeof data.qIdx, ') | state.qIndex:', state.qIndex, '(type:', typeof state.qIndex, ') | p.answered:', p.answered, '| revealed:', state.revealed);
+        }
+        if (data.answerPending && Number(data.qIdx) === state.qIndex && !p.answered && !state.revealed) {
           p.answered     = true;
           p.lastTimeLeft = data.timeRemaining || 0;
           if (data.estimate !== undefined && data.estimate !== null) {
@@ -576,11 +581,8 @@
           }
           updateAnswerCounter();
           const answered = [...state.players.values()].filter(x => x.answered).length;
+          console.log('[child_changed] accepted answer, answered:', answered, '/', state.players.size);
           if (state.players.size > 0 && answered >= state.players.size) revealAnswer();
-          // Acknowledge AFTER the reveal check so the Firebase write cannot
-          // trigger a synchronous child_changed callback that interferes with
-          // the all-answered detection above.
-          state.playersRef.child(uid).update({ answerPending: false });
         }
       });
 
@@ -647,6 +649,7 @@
     }
 
     function revealAnswer() {
+      console.log('[revealAnswer] called | revealed:', state.revealed, '| qIndex:', state.qIndex);
       if (state.revealed) return;
       state.revealed = true;
       clearInterval(state.timerInterval);
@@ -688,7 +691,7 @@
       });
 
       const lb = getLeaderboard();
-      broadcast({ type: 'reveal', correctIndex: q.correctIndex, correctAnswer: q.correctAnswer, unit: q.unit || '', qtype, explanation: q.explanation, leaderboard: lb });
+      broadcast({ type: 'reveal', correctIndex: q.correctIndex ?? null, correctAnswer: q.correctAnswer ?? null, unit: q.unit || '', qtype, explanation: q.explanation ?? '', leaderboard: lb });
 
       showScreen('screen-result');
       const resultImgEl = document.getElementById('result-image');
