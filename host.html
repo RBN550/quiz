@@ -574,11 +574,13 @@
             p.lastAnswer   = data.answerIndex;
             p.lastEstimate = null;
           }
-          // Acknowledge so we don't process twice
-          state.playersRef.child(uid).update({ answerPending: false });
           updateAnswerCounter();
           const answered = [...state.players.values()].filter(x => x.answered).length;
           if (state.players.size > 0 && answered >= state.players.size) revealAnswer();
+          // Acknowledge AFTER the reveal check so the Firebase write cannot
+          // trigger a synchronous child_changed callback that interferes with
+          // the all-answered detection above.
+          state.playersRef.child(uid).update({ answerPending: false });
         }
       });
 
