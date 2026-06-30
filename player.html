@@ -465,7 +465,7 @@
         if (!data) return;
         // Ignore old messages (before we joined)
         const ts = data._ts || 0;
-        if (ts <= state.lastBroadcastTs) return;
+        if (ts < state.lastBroadcastTs) return;
         state.lastBroadcastTs = ts;
         handleHostMsg(data);
       });

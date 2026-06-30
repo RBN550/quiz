@@ -518,7 +518,8 @@
     // ── Firebase communication ─────────────────────────────────────────────
     function broadcast(data) {
       if (!state.broadcastRef) return;
-      state.broadcastRef.set({ ...data, _ts: Date.now() });
+      state._lastBroadcastTs = Math.max(Date.now(), (state._lastBroadcastTs || 0) + 1);
+      state.broadcastRef.set({ ...data, _ts: state._lastBroadcastTs });
     }
 
     function initFirebase() {
