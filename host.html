@@ -316,7 +316,6 @@
       timerInterval: null,
       revealed:      false,
       savedScores:   new Map(),
-      onReveal:      null,
     };
 
     // ── Questions ─────────────────────────────────────────────────────────────
@@ -502,7 +501,7 @@
         updateTimerUI();
         if (state.timeLeft <= 0) {
           clearInterval(state.timerInterval);
-          if (state.onReveal) state.onReveal();
+          revealAnswer();
         }
       }, 1000);
     }
@@ -529,9 +528,10 @@
       state.playersRef   = db.ref('games/' + pin + '/players');
       state.broadcastRef = db.ref('games/' + pin + '/broadcast');
 
-      // Mark game as open + clean up stale broadcast
+      // Mark game as open + clean up stale data from previous sessions
       state.gameRef.update({ status: 'lobby', pin });
       state.broadcastRef.remove();
+      state.playersRef.remove();
 
       // Listen for players joining / updating answers
       state.playersRef.on('child_added', snap => {
@@ -578,13 +578,18 @@
           state.playersRef.child(uid).update({ answerPending: false });
           updateAnswerCounter();
           const answered = [...state.players.values()].filter(x => x.answered).length;
-          if (answered >= state.players.size && state.onReveal) state.onReveal();
+          if (state.players.size > 0 && answered >= state.players.size) revealAnswer();
         }
       });
 
       state.playersRef.on('child_removed', snap => {
         state.players.delete(snap.key);
         updatePlayerList();
+        // If a player left while everyone else had already answered, reveal now
+        if (!state.revealed && state.players.size > 0) {
+          const answered = [...state.players.values()].filter(x => x.answered).length;
+          if (answered >= state.players.size) revealAnswer();
+        }
       });
 
       console.log('Host bereit, PIN:', pin);
@@ -746,8 +751,6 @@
     }
 
     // ── Wire up & init ────────────────────────────────────────────────────────
-    state.onReveal = revealAnswer;
-
     document.getElementById('btn-start').addEventListener('click', () => {
       clearGameState();
       state.savedScores = new Map();

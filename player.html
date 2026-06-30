@@ -440,6 +440,7 @@
 
         // Register player
         state.playerRef.set({ name: state.myName, score: 0 }).then(() => {
+          state.playerRef.onDisconnect().remove();
           clearTimeout(state.joinTimeout);
           document.getElementById('wait-name').textContent = state.myName;
           showScreen('screen-wait');
@@ -577,7 +578,9 @@
           btn.addEventListener('click', () => sendAnswer(i, btn));
           grid.appendChild(btn);
         });
-        startTimer(data.timeLimit);
+        startTimer(data.timeLimit, () => {
+          document.querySelectorAll('#answer-grid .answer-btn').forEach(b => b.disabled = true);
+        });
       }
     }
 
