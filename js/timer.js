@@ -3,9 +3,9 @@
 // onTick(timeLeft, totalTime) is called immediately and on every decrement.
 // onEnd() is called when timeLeft reaches 0.
 
-export function startTimer(seconds, { onTick, onEnd } = {}) {
+export function startTimer(seconds, { onTick, onEnd, totalTime: overrideTotal } = {}) {
   let timeLeft = seconds;
-  const totalTime = seconds;
+  const totalTime = overrideTotal ?? seconds;
 
   onTick?.(timeLeft, totalTime);
 

@@ -216,9 +216,51 @@
       opacity: .5;
       margin-top: 2px;
     }
+
+    /* ── Explanation ─────────────────────────────────────────────────────── */
+    .explanation-box {
+      background: rgba(255,255,255,.12);
+      border-left: 4px solid rgba(255,255,255,.45);
+      border-radius: 12px;
+      padding: 16px 22px;
+      font-size: .95rem;
+      line-height: 1.5;
+      width: 100%;
+      text-align: left;
+    }
+
+    /* ── VAR hint overlay ────────────────────────────────────────────────── */
+    #var-hint {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,.85);
+      color: #4ade80;
+      font-size: 1.4rem;
+      font-weight: 900;
+      padding: 18px 32px;
+      border-radius: 14px;
+      border: 2px solid #4ade80;
+      z-index: 9999;
+      text-align: center;
+      pointer-events: none;
+      letter-spacing: .5px;
+    }
+    #var-hint .var-label {
+      font-size: .7rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: .7;
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
+
+  <!-- VAR hint overlay -->
+  <div id="var-hint"><div class="var-label">📹 VAR Check</div><div id="var-hint-text"></div></div>
 
   <!-- Live PIN badge (shown during gameplay for rejoins / hot-joins) -->
   <div id="pin-badge">
@@ -267,6 +309,7 @@
     <h2 id="result-title">Result</h2>
     <img id="result-image" class="question-image" style="display:none" referrerpolicy="no-referrer" />
     <div class="answer-grid" id="result-grid"></div>
+    <div class="explanation-box" id="result-explanation" style="display:none"></div>
     <button class="btn" id="btn-next">Next</button>
   </div>
 
@@ -332,9 +375,8 @@
 
     // ── Constants & State ───────────────────────────────────────────────────
     const SHAPES     = ['▲', '◆', '●', '■'];
-    const ROUND_SIZE = 10;
-    const MAX_PTS    = 1000;
-    const MIN_PTS    = 100;
+    const MAX_PTS = 1000;
+    const MIN_PTS = 100;
 
     function shuffle(arr) {
       const a = [...arr];
@@ -520,7 +562,15 @@
         state.players.forEach(p => {
           const chip = document.createElement('span');
           chip.className = 'player-chip';
-          chip.textContent = p.name;
+          const _ln = p.name.toLowerCase();
+          if (_ln === 'messi') {
+            chip.textContent = p.name + ' 🐐';
+          } else if (_ln === 'pelé' || _ln === 'pele') {
+            chip.style.cssText = 'background:rgba(255,215,0,.55);color:#46178F';
+            chip.textContent = p.name;
+          } else {
+            chip.textContent = p.name;
+          }
           list.appendChild(chip);
         });
       }
@@ -679,15 +729,16 @@
         info.textContent = '🔢 Players are typing their estimates…';
         grid.appendChild(info);
       } else {
+        const icons = SHAPES;
         q.options.forEach((opt, i) => {
           const btn = document.createElement('div');
           btn.className = 'answer-btn';
-          btn.innerHTML = `<span class="shape">${SHAPES[i]}</span>${opt}`;
+          btn.innerHTML = `<span class="shape">${icons[i]}</span>${opt}`;
           grid.appendChild(btn);
         });
       }
 
-      broadcast({ type: 'question', index: state.qIndex, total: state.questions.length, question: q.question, options: q.options || [], timeLimit: q.timeLimit, qtype, image: q.image || null });
+      broadcast({ type: 'question', index: state.qIndex, total: state.questions.length, question: q.question, options: q.options || [], timeLimit: q.timeLimit, qtype, image: q.image || null, _startedAt: Date.now() });
       startTimer(q.timeLimit);
     }
 
@@ -712,8 +763,8 @@
             else if (diff <= b1) mult = 0.50;
             else if (diff <= b2) mult = 0.25;
             if (mult > 0) {
-              const timePts = Math.max(MIN_PTS, Math.round(MAX_PTS * (p.lastTimeLeft / q.timeLimit)));
-              const pts     = Math.round(timePts * mult);
+              const timePts = Math.round(MAX_PTS * (p.lastTimeLeft / q.timeLimit));
+              const pts     = Math.max(MIN_PTS, Math.round(timePts * mult));
               p.score  += pts;
               p.correct++;
               p.lastDelta = pts;
@@ -746,7 +797,7 @@
       if (qtype === 'estimate') {
         const correctDiv = document.createElement('div');
         correctDiv.style.cssText = 'grid-column:1/-1;background:rgba(38,137,12,.4);border-radius:12px;padding:20px;text-align:center;font-size:1.8rem;font-weight:900';
-        correctDiv.textContent = `✅ ${q.correctAnswer.toLocaleString()}${q.unit ? ' ' + q.unit : ''}`;
+        correctDiv.textContent = `✅ ${q.unit ? q.correctAnswer.toLocaleString() : q.correctAnswer}${q.unit ? ' ' + q.unit : ''}`;
         resultGrid.appendChild(correctDiv);
         const guesses = [...state.players.values()]
           .filter(p => p.lastEstimate !== null && p.lastEstimate !== undefined)
@@ -759,16 +810,17 @@
             const icon = g.lastDelta > 0 ? '🎯' : '❌';
             const row  = document.createElement('div');
             row.style.cssText = 'display:flex;justify-content:space-between;background:rgba(255,255,255,.1);border-radius:8px;padding:8px 14px;font-size:.95rem';
-            row.innerHTML = `<span>${g.name}</span><span>${g.lastEstimate.toLocaleString()} <span style="opacity:.6;font-size:.85em">(${diff > 0 ? '+/−' + diff.toLocaleString() : 'exact'})</span> ${icon}</span>`;
+            row.innerHTML = `<span>${g.name}</span><span>${q.unit ? g.lastEstimate.toLocaleString() : g.lastEstimate} <span style="opacity:.6;font-size:.85em">(${diff > 0 ? '+/−' + (q.unit ? diff.toLocaleString() : diff) : 'exact'})</span> ${icon}</span>`;
             guessWrap.appendChild(row);
           });
           resultGrid.appendChild(guessWrap);
         }
       } else {
+        const icons = SHAPES;
         (q.options || []).forEach((opt, i) => {
           const div = document.createElement('div');
           div.className = `answer-btn ${i === q.correctIndex ? 'correct' : 'wrong'}`;
-          div.innerHTML = `<span class="shape">${SHAPES[i]}</span>${opt}`;
+          div.innerHTML = `<span class="shape">${icons[i]}</span>${opt}`;
           resultGrid.appendChild(div);
         });
       }
@@ -776,11 +828,17 @@
       const isLast       = state.qIndex >= state.questions.length - 1;
       const isTop5Moment = !isLast && (state.qIndex + 1) % 5 === 0;
       if (isLast) { clearGameState(); } else { saveGameState(); }
-      document.getElementById('result-title').textContent = isLast ? 'Final Standings' : 'Correct Answer';
+      document.getElementById('result-title').textContent = isLast ? 'Final Standings' : (qtype === 'estimate' ? 'Correct Estimate' : 'Correct Answer');
+
+      const explEl = document.getElementById('result-explanation');
+      if (q.explanation) { explEl.textContent = '💡 ' + q.explanation; explEl.style.display = ''; }
+      else { explEl.style.display = 'none'; }
 
       const nextBtn = document.getElementById('btn-next');
+      nextBtn.disabled = false;
       nextBtn.textContent = isLast ? 'Show final standings' : (isTop5Moment ? '🏅 Show Top 5' : 'Next question');
-      nextBtn.onclick = isLast ? showFinalResults : (isTop5Moment ? showTop5 : () => { state.qIndex++; showCurrentQuestion(); });
+      const advance = isLast ? showFinalResults : (isTop5Moment ? showTop5 : () => { state.qIndex++; showCurrentQuestion(); });
+      nextBtn.onclick = () => { nextBtn.disabled = true; advance(); };
     }
 
     function showTop5() {
@@ -851,6 +909,26 @@
     }
 
     initFirebase();
+
+    // ── Easter egg: Shift+R → flash correct answer for 1 s ───────────────────
+    let _varTimeout = null;
+    document.addEventListener('keydown', e => {
+      if (!e.shiftKey || e.key !== 'R') return;
+      if (!document.getElementById('screen-question').classList.contains('active')) return;
+      if (state.revealed || state.questions.length === 0) return;
+
+      const q     = state.questions[state.qIndex];
+      const qtype = q.type || 'multiple';
+      let answer;
+      if (qtype === 'estimate') {
+        answer = q.correctAnswer + (q.unit ? ' ' + q.unit : '');
+      } else {
+        answer = (q.options || [])[q.correctIndex] || '?';
+      }
+
+      clearTimeout(_varTimeout);
+      broadcast({ type: 'var-hint', answer });
+    });
   </script>
 </body>
 </html>

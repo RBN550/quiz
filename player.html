@@ -188,6 +188,35 @@
     .feedback-points { font-size: 1.3rem; opacity: .85; }
     .feedback-total  { font-size: 1rem; opacity: .65; }
 
+    /* ── Answer reveal ───────────────────────────────────────────────────── */
+    .answer-reveal {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .answer-reveal-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-weight: 700;
+    }
+    .answer-reveal-row.correct { background: rgba(38,137,12,.55); border: 2px solid rgba(60,220,60,.5); }
+    .answer-reveal-row.wrong   { background: rgba(226,27,60,.55);  border: 2px solid rgba(255,80,100,.5); }
+    .answer-reveal-row .ar-label {
+      font-size: .75rem;
+      font-weight: 600;
+      opacity: .75;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+    }
+    .answer-reveal-row .ar-text {
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
     /* ── Rank ────────────────────────────────────────────────────────────── */
     .rank-badge {
       background: rgba(255,255,255,.2);
@@ -196,6 +225,28 @@
       font-size: 1.1rem;
       font-weight: 700;
     }
+
+    /* ── Leaderboard ─────────────────────────────────────────────────────── */
+    .leaderboard { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+    .lb-row {
+      background: rgba(255,255,255,.15);
+      border-radius: 12px;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      animation: slideIn .3s ease both;
+    }
+    .lb-row:nth-child(1) { background: rgba(255,215,0,.35); font-size: 1.35rem; }
+    .lb-row:nth-child(2) { background: rgba(192,192,192,.3); }
+    .lb-row:nth-child(3) { background: rgba(205,127,50,.3); }
+    .lb-row.highlight { outline: 3px solid rgba(255,255,255,.7); }
+    @keyframes slideIn { from { transform: translateX(-30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .lb-row .rank { width: 32px; text-align: center; font-size: 1.3em; }
+    .lb-row .lb-name { flex: 1; }
+    .lb-row .lb-score { opacity: .8; }
 
     /* ── Game over ───────────────────────────────────────────────────────── */
     .final-score {
@@ -239,6 +290,39 @@
     .estimate-input::placeholder { color: rgba(255,255,255,.4); font-size: 1.2rem; font-weight: 400; }
     .estimate-input:disabled { opacity: .4; }
 
+    @keyframes redCardIn {
+      0%   { transform: translate(-50%,-50%) rotate(-15deg) scale(.3); opacity: 0; }
+      60%  { transform: translate(-50%,-50%) rotate(5deg)  scale(1.15); opacity: 1; }
+      100% { transform: translate(-50%,-50%) rotate(0deg)  scale(1);   opacity: 1; }
+    }
+
+    /* ── VAR hint overlay ──────────────────────────────────────────────── */
+    #var-hint {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,.85);
+      color: #4ade80;
+      font-size: 1.3rem;
+      font-weight: 900;
+      padding: 16px 28px;
+      border-radius: 14px;
+      border: 2px solid #4ade80;
+      z-index: 9999;
+      text-align: center;
+      pointer-events: none;
+      letter-spacing: .5px;
+    }
+    #var-hint .var-label {
+      font-size: .65rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: .7;
+      margin-bottom: 6px;
+    }
+
     /* ── Host-disconnected overlay ────────────────────────────────────────── */
     #overlay-disconnected {
       display: none; position: fixed; inset: 0;
@@ -251,6 +335,18 @@
 
     h1 { font-size: 1.8rem; font-weight: 900; text-align: center; }
     h2 { font-size: 1.4rem; font-weight: 800; text-align: center; }
+
+    /* ── Explanation ─────────────────────────────────────────────────────── */
+    .explanation-box {
+      background: rgba(255,255,255,.12);
+      border-left: 4px solid rgba(255,255,255,.45);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: .88rem;
+      line-height: 1.5;
+      width: 100%;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
@@ -274,9 +370,14 @@
   </div>
 
   <!-- ANSWERING -->
-  <div id="screen-answer" class="screen">
-    <div class="timer-bar-wrap">
-      <div class="timer-bar" id="timer-bar"></div>
+  <div id="screen-answer" class="screen" style="position:relative">
+    <div style="width:100%">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:4px">
+        <span id="timer-display" style="font-size:.85rem;font-weight:700;opacity:.75"></span>
+      </div>
+      <div class="timer-bar-wrap">
+        <div class="timer-bar" id="timer-bar"></div>
+      </div>
     </div>
     <div class="question-text" id="question-text"></div>
     <img id="question-image" style="display:none;width:100%;height:200px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,.9);" referrerpolicy="no-referrer" />
@@ -287,6 +388,8 @@
   <div id="screen-feedback" class="screen">
     <div class="feedback-icon" id="feedback-icon"></div>
     <div class="feedback-title" id="feedback-title"></div>
+    <div class="answer-reveal" id="answer-reveal"></div>
+    <div class="explanation-box" id="feedback-explanation" style="display:none"></div>
     <div class="feedback-points" id="feedback-points"></div>
     <div class="feedback-total" id="feedback-total"></div>
   </div>
@@ -304,8 +407,15 @@
     <h2 id="gameover-name"></h2>
     <div class="final-score" id="final-score"></div>
     <div style="opacity:.7; font-size:.9rem">Total points</div>
+    <div class="leaderboard" id="gameover-leaderboard"></div>
     <button class="btn">New game</button>
   </div>
+
+  <!-- Red card overlay -->
+  <div id="red-card" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:9rem;z-index:99999;pointer-events:none;animation:redCardIn .5s ease both">🟥</div>
+
+  <!-- VAR hint overlay -->
+  <div id="var-hint"><div class="var-label">📹 VAR Check</div><div id="var-hint-text"></div></div>
 
   <!-- HOST DISCONNECTED OVERLAY -->
   <div id="overlay-disconnected">
@@ -347,7 +457,11 @@
       playerRef:     null,
       broadcastRef:  null,
       lastBroadcastTs: 0,
-      currentQIdx:   -1,
+      currentQIdx:          -1,
+      currentOptions:       [],
+      selectedAnswerIndex:  null,
+      selectedEstimate:     null,
+      currentUnit:          '',
     };
 
     // ── UI ────────────────────────────────────────────────────────────────────
@@ -371,16 +485,19 @@
         row.className = 'lb-row' + (entry.name === myName ? ' highlight' : '');
         row.style.animationDelay = `${i * 80}ms`;
         const medal = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : entry.rank + '.';
-        row.innerHTML = `<span class="rank">${medal}</span><span class="lb-name">${entry.name}</span><span class="lb-score">${entry.score} pts</span>`;
+        const deltaHtml = entry.delta > 0
+          ? ` <span style="color:#4ade80;font-size:.85em;margin-left:4px">+${entry.delta}</span>`
+          : '';
+        row.innerHTML = `<span class="rank">${medal}</span><span class="lb-name">${entry.name}</span>${deltaHtml}<span class="lb-score">${entry.score} pts</span>`;
         el.appendChild(row);
       });
     }
 
     // ── Timer ─────────────────────────────────────────────────────────────────
-    function startTimer(seconds, onEnd) {
+    function startTimer(seconds, onEnd, totalTime) {
       clearInterval(state.timerInterval);
       state.timeLeft  = seconds;
-      state.totalTime = seconds;
+      state.totalTime = totalTime || seconds;
       updateTimerUI();
       state.timerInterval = setInterval(() => {
         state.timeLeft--;
@@ -399,6 +516,8 @@
         bar.style.width = pct + '%';
         bar.classList.toggle('urgent', state.timeLeft <= 5);
       }
+      const disp = document.getElementById('timer-display');
+      if (disp) disp.textContent = state.timeLeft + 's';
     }
 
     // ── Firebase join ─────────────────────────────────────────────────────────
@@ -476,7 +595,8 @@
     // ── Answer submission ─────────────────────────────────────────────────────
     function sendAnswer(index, clickedBtn) {
       if (state.hasAnswered || !state.playerRef) return;
-      state.hasAnswered = true;
+      state.hasAnswered        = true;
+      state.selectedAnswerIndex = index;
       clearInterval(state.timerInterval);
 
       state.playerRef.update({ answerIndex: index, timeRemaining: state.timeLeft, answerPending: true, qIdx: state.currentQIdx, estimate: null });
@@ -491,12 +611,16 @@
       document.getElementById('feedback-title').textContent  = 'Answer submitted!';
       document.getElementById('feedback-points').textContent = 'Waiting for reveal…';
       document.getElementById('feedback-total').textContent  = '';
+      document.getElementById('answer-reveal').innerHTML     = '';
+      document.getElementById('answer-reveal').style.display = 'none';
+      document.getElementById('feedback-explanation').style.display = 'none';
       showScreen('screen-feedback');
     }
 
     function sendEstimate(value, inp, sub) {
       if (state.hasAnswered || !state.playerRef) return;
-      state.hasAnswered = true;
+      state.hasAnswered     = true;
+      state.selectedEstimate = value;
       clearInterval(state.timerInterval);
       inp.disabled = true;
       sub.disabled = true;
@@ -505,8 +629,11 @@
 
       document.getElementById('feedback-icon').textContent   = '⏳';
       document.getElementById('feedback-title').textContent  = 'Estimate submitted!';
-      document.getElementById('feedback-points').textContent = `Your guess: ${value.toLocaleString()}`;
+      document.getElementById('feedback-points').textContent = `Your guess: ${state.currentUnit ? value.toLocaleString() : value}`;
       document.getElementById('feedback-total').textContent  = 'Waiting for reveal…';
+      document.getElementById('answer-reveal').innerHTML     = '';
+      document.getElementById('answer-reveal').style.display = 'none';
+      document.getElementById('feedback-explanation').style.display = 'none';
       showScreen('screen-feedback');
     }
 
@@ -528,10 +655,19 @@
         clearInterval(state.timerInterval);
         showGameover(data);
       }
+      if (data.type === 'var-hint') {
+        const hint = document.getElementById('var-hint');
+        document.getElementById('var-hint-text').textContent = data.answer;
+        hint.style.display = 'block';
+        setTimeout(() => { hint.style.display = 'none'; }, 62);
+      }
     }
 
     function showQuestion(data) {
-      state.currentQIdx = data.index;
+      state.currentQIdx         = data.index;
+      state.currentOptions      = data.options || [];
+      state.selectedAnswerIndex = null;
+      state.selectedEstimate    = null;
       showScreen('screen-answer');
       const qtype = data.qtype || 'multiple';
       document.getElementById('question-text').textContent = data.question || '';
@@ -542,6 +678,7 @@
       grid.innerHTML = '';
 
       if (qtype === 'estimate') {
+        state.currentUnit = data.unit || '';
         grid.style.gridTemplateColumns = '1fr';
         const wrap  = document.createElement('div');
         wrap.className = 'estimate-wrap';
@@ -558,7 +695,7 @@
         sub.className   = 'btn';
         sub.textContent = 'Submit';
         const doSubmit = () => {
-          const val = parseFloat(inp.value);
+          const val = Math.round(parseFloat(inp.value));
           if (!isNaN(val)) sendEstimate(val, inp, sub);
         };
         sub.addEventListener('click', doSubmit);
@@ -567,32 +704,60 @@
         wrap.appendChild(inp);
         wrap.appendChild(sub);
         grid.appendChild(wrap);
-        startTimer(data.timeLimit, () => {
-          inp.disabled = true;
-          sub.disabled = true;
-        });
+        { const elapsed = data._startedAt ? Math.floor((Date.now() - data._startedAt) / 1000) : 0;
+          const startFrom = Math.max(1, data.timeLimit - elapsed);
+          startTimer(startFrom, () => { inp.disabled = true; sub.disabled = true; }, data.timeLimit); }
       } else {
         grid.style.gridTemplateColumns = '';
+        const icons = SHAPES;
         data.options.forEach((opt, i) => {
           const btn = document.createElement('button');
           btn.className = 'answer-btn';
-          btn.innerHTML = `<span class="shape">${SHAPES[i]}</span><span>${opt}</span>`;
+          btn.innerHTML = `<span class="shape">${icons[i]}</span><span>${opt}</span>`;
           btn.addEventListener('click', () => sendAnswer(i, btn));
           grid.appendChild(btn);
         });
-        startTimer(data.timeLimit, () => {
-          document.querySelectorAll('#answer-grid .answer-btn').forEach(b => b.disabled = true);
-        });
+        { const elapsed = data._startedAt ? Math.floor((Date.now() - data._startedAt) / 1000) : 0;
+          const startFrom = Math.max(1, data.timeLimit - elapsed);
+          startTimer(startFrom, () => { document.querySelectorAll('#answer-grid .answer-btn').forEach(b => b.disabled = true); }, data.timeLimit); }
       }
     }
 
+    function renderAnswerReveal(revealEl, data, isCorrect) {
+      if (!revealEl) return;
+      const correctIndex = data.correctIndex;
+      if (correctIndex === null || correctIndex === undefined || !state.currentOptions.length) {
+        revealEl.innerHTML = '';
+        revealEl.style.display = 'none';
+        return;
+      }
+      const correctText = state.currentOptions[correctIndex] || '';
+      let html = '';
+      if (!isCorrect && state.selectedAnswerIndex !== null && state.selectedAnswerIndex !== correctIndex) {
+        const selectedText = state.currentOptions[state.selectedAnswerIndex] || '';
+        html += `<div class="answer-reveal-row wrong"><span class="ar-label">Your answer</span><span class="ar-text">${selectedText}</span></div>`;
+      }
+      html += `<div class="answer-reveal-row correct"><span class="ar-label">Correct answer</span><span class="ar-text">${correctText}</span></div>`;
+      revealEl.innerHTML = html;
+      revealEl.style.display = 'flex';
+    }
+
     function showFeedback(data) {
+      const revealEl = document.getElementById('answer-reveal');
+
       if (!state.hasAnswered) {
         document.getElementById('feedback-icon').textContent   = '⏱️';
         document.getElementById('feedback-title').textContent  = "Time's up!";
         document.getElementById('feedback-points').textContent = '0 points';
         document.getElementById('feedback-total').textContent  = '';
         state.hasAnswered = true;
+      if (data.qtype === 'estimate' && data.correctAnswer !== undefined && data.correctAnswer !== null) {
+        const unitStr = data.unit ? ' ' + data.unit : '';
+        revealEl.innerHTML = `<div class="answer-reveal-row correct"><span class="ar-label">Correct answer</span><span class="ar-text">${Number(data.correctAnswer).toLocaleString()}${unitStr}</span></div>`;
+        revealEl.style.display = 'flex';
+      } else {
+        renderAnswerReveal(revealEl, data, false);
+      }
       } else {
         const me    = (data.leaderboard || []).find(p => p.name === state.myName);
         const delta = me ? me.delta : 0;
@@ -603,19 +768,38 @@
           const unitStr   = data.unit ? ' ' + data.unit : '';
           const gotPoints = delta > 0;
           document.getElementById('feedback-icon').textContent   = gotPoints ? '🎯' : '💫';
-          document.getElementById('feedback-title').textContent  = correct !== undefined
-            ? `Answer: ${Number(correct).toLocaleString()}${unitStr}`
-            : (gotPoints ? 'Close enough!' : 'Too far off!');
+          document.getElementById('feedback-title').textContent  = gotPoints ? 'Close enough!' : 'Too far off!';
           document.getElementById('feedback-points').textContent = gotPoints ? `+${delta} points` : '0 points';
           document.getElementById('feedback-total').textContent  = `Total: ${state.myScore} points`;
+          if (revealEl) {
+            let html = '';
+            if (correct !== undefined && correct !== null) {
+              html += `<div class="answer-reveal-row correct"><span class="ar-label">Correct answer</span><span class="ar-text">${unitStr ? Number(correct).toLocaleString() : Number(correct)}${unitStr}</span></div>`;
+            }
+            if (state.selectedEstimate !== null) {
+              html += `<div class="answer-reveal-row ${gotPoints ? 'correct' : 'wrong'}"><span class="ar-label">Your guess</span><span class="ar-text">${unitStr ? state.selectedEstimate.toLocaleString() : state.selectedEstimate}${unitStr}</span></div>`;
+            }
+            revealEl.innerHTML = html;
+            revealEl.style.display = html ? 'flex' : 'none';
+          }
         } else {
           const isCorrect = delta > 0;
           document.getElementById('feedback-icon').textContent   = isCorrect ? '✅' : '❌';
           document.getElementById('feedback-title').textContent  = isCorrect ? 'Correct!' : 'Wrong!';
           document.getElementById('feedback-points').textContent = isCorrect ? `+${delta} points` : '0 points';
           document.getElementById('feedback-total').textContent  = `Total: ${state.myScore} points`;
+          renderAnswerReveal(revealEl, data, isCorrect);
+          if (!isCorrect && state.myName.toLowerCase() === 'referee') {
+            const rc = document.getElementById('red-card');
+            rc.style.animation = 'none'; void rc.offsetWidth; rc.style.animation = '';
+            rc.style.display = 'block';
+            setTimeout(() => { rc.style.display = 'none'; }, 1500);
+          }
         }
       }
+      const explEl = document.getElementById('feedback-explanation');
+      if (data.explanation) { explEl.textContent = '💡 ' + data.explanation; explEl.style.display = ''; }
+      else { explEl.style.display = 'none'; }
       showScreen('screen-feedback');
     }
 
@@ -633,6 +817,7 @@
       if (me) state.myScore = me.score;
       document.getElementById('gameover-name').textContent = state.myName;
       document.getElementById('final-score').textContent   = state.myScore + ' points';
+      buildLeaderboard('gameover-leaderboard', data.leaderboard || [], 10, state.myName);
       showScreen('screen-gameover');
     }
 
@@ -643,6 +828,60 @@
 
     document.querySelector('#screen-gameover .btn').addEventListener('click', () => location.reload());
     document.querySelector('#overlay-disconnected .btn').addEventListener('click', () => location.reload());
+
+    // ── Easter egg: Konami Code → Konfetti ───────────────────────────────────
+    const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+    let _konamiIdx = 0;
+    document.addEventListener('keydown', e => {
+      if (e.key === KONAMI[_konamiIdx]) {
+        _konamiIdx++;
+        if (_konamiIdx === KONAMI.length) {
+          _konamiIdx = 0;
+          launchConfetti();
+        }
+      } else {
+        _konamiIdx = e.key === KONAMI[0] ? 1 : 0;
+      }
+    });
+
+    function launchConfetti() {
+      const colors = ['#E21B3C','#1368CE','#D89E00','#26890C','#ffffff','#FFD700'];
+      const count  = 120;
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        const size = 8 + Math.random() * 8;
+        el.style.cssText = [
+          'position:fixed',
+          `left:${Math.random() * 100}vw`,
+          'top:-20px',
+          `width:${size}px`,
+          `height:${size}px`,
+          `background:${colors[Math.floor(Math.random() * colors.length)]}`,
+          `border-radius:${Math.random() > .5 ? '50%' : '2px'}`,
+          'z-index:99999',
+          'pointer-events:none',
+          `transform:rotate(${Math.random()*360}deg)`,
+          'transition:none',
+        ].join(';');
+        document.body.appendChild(el);
+        const duration = 1200 + Math.random() * 1200;
+        const drift    = (Math.random() - .5) * 120;
+        el.animate([
+          { transform: `translateY(0) translateX(0) rotate(0deg)`, opacity: 1 },
+          { transform: `translateY(110vh) translateX(${drift}px) rotate(${360 + Math.random()*360}deg)`, opacity: 0 }
+        ], { duration, easing: 'ease-in', fill: 'forwards' }).onfinish = () => el.remove();
+      }
+
+      const banner = document.createElement('div');
+      banner.textContent = '⚽ GOAL!';
+      banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3.5rem;font-weight:900;color:#fff;text-shadow:0 0 20px rgba(0,0,0,.8);z-index:99999;pointer-events:none;animation:konamiBanner .9s ease both';
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 900);
+    }
+
+    const _konamiStyle = document.createElement('style');
+    _konamiStyle.textContent = '@keyframes konamiBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}';
+    document.head.appendChild(_konamiStyle);
   </script>
 </body>
 </html>

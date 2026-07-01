@@ -174,7 +174,11 @@ function showQuestion(data) {
   });
 
   if (state.timer) state.timer.stop();
-  state.timer = startTimer(data.timeLimit, {
+  const startFrom = (data.timeRemaining !== undefined && data.timeRemaining < data.timeLimit)
+    ? data.timeRemaining
+    : data.timeLimit;
+  state.timer = startTimer(startFrom, {
+    totalTime: data.timeLimit,
     onTick: (left, total) => { state.timeLeft = left; updateTimerUI(left, total); },
     onEnd:  () => {},
   });

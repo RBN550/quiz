@@ -16,9 +16,10 @@ const state = {
   players:      new Map(),   // peerId → { conn, name, score, correct, answered, lastAnswer, lastTimeLeft, lastDelta, lastEstimate }
   questions:    [],
   qIndex:       0,
-  timer:        null,        // { stop }
-  revealed:     false,
-  savedScores:  new Map(),   // name → { score, correct }
+  timer:           null,        // { stop }
+  revealed:         false,
+  questionStartedAt: null,      // Date.now() when current question began
+  savedScores:      new Map(),   // name → { score, correct }
 };
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
@@ -74,6 +75,18 @@ function handlePlayerMsg(conn, data) {
       answered: false, lastAnswer: -1, lastTimeLeft: 0, lastDelta: 0, lastEstimate: null,
     });
     updatePlayerList();
+    // If a question is currently in progress, sync the new player's timer
+    if (!state.revealed && state.timer && state.questionStartedAt !== null && state.qIndex < state.questions.length) {
+      const q           = state.questions[state.qIndex];
+      const elapsed     = Math.floor((Date.now() - state.questionStartedAt) / 1000);
+      const timeRemaining = Math.max(0, q.timeLimit - elapsed);
+      const p           = state.players.get(conn.peer);
+      try {
+        p.conn.send({ type: 'question', index: state.qIndex, total: state.questions.length,
+                      question: q.question, options: q.options || [], timeLimit: q.timeLimit,
+                      qtype: q.type || 'multiple', image: q.image || null, timeRemaining });
+      } catch (e) {}
+    }
   }
   if (data.type === 'answer') {
     const p = state.players.get(conn.peer);
@@ -163,6 +176,7 @@ function showCurrentQuestion() {
                qtype, image: q.image || null });
 
   if (state.timer) state.timer.stop();
+  state.questionStartedAt = Date.now();
   state.timer = startTimer(q.timeLimit, {
     onTick: (left, total) => updateTimerUI(left, total),
     onEnd:  () => revealAnswer(),
