@@ -520,6 +520,43 @@
       if (disp) disp.textContent = state.timeLeft + 's';
     }
 
+    // ── Session persistence ──────────────────────────────────────────────────
+    const _SESSION_KEY = 'quiz-player-session';
+    const _SESSION_AGE = 6 * 60 * 60 * 1000; // 6 h
+
+    function savePlayerSession() {
+      if (!state.connectedPin || !state.myName) return;
+      localStorage.setItem(_SESSION_KEY, JSON.stringify({
+        ts:    Date.now(),
+        pin:   state.connectedPin,
+        name:  state.myName,
+        uid:   state.myUid,
+        score: state.myScore,
+      }));
+    }
+
+    function clearPlayerSession() {
+      localStorage.removeItem(_SESSION_KEY);
+    }
+
+    function loadPlayerSession() {
+      try {
+        const raw = localStorage.getItem(_SESSION_KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s.ts || Date.now() - s.ts > _SESSION_AGE) { clearPlayerSession(); return null; }
+        return s;
+      } catch (e) { return null; }
+    }
+
+    // Pre-fill form if a recent session exists
+    (function restoreForm() {
+      const s = loadPlayerSession();
+      if (!s) return;
+      document.getElementById('input-pin').value  = s.pin;
+      document.getElementById('input-name').value = s.name;
+    })();
+
     // ── Firebase join ─────────────────────────────────────────────────────────
     function doJoin() {
       const pin  = document.getElementById('input-pin').value.trim();
@@ -530,7 +567,16 @@
       if (!name) { showError('Please enter a name.'); return; }
 
       state.myName = name;
-      state.myUid  = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+      // Reuse saved session if pin+name match (reconnect scenario)
+      const _prevSession = loadPlayerSession();
+      if (_prevSession && _prevSession.pin === pin && _prevSession.name === name) {
+        state.myUid   = _prevSession.uid;
+        state.myScore = _prevSession.score;
+      } else {
+        state.myUid   = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        state.myScore = 0;
+      }
 
       const btnJoin = document.getElementById('btn-join');
       btnJoin.disabled    = true;
@@ -559,9 +605,10 @@
         state.broadcastRef = db.ref('games/' + pin + '/broadcast');
 
         // Register player
-        state.playerRef.set({ name: state.myName, score: 0 }).then(() => {
+        state.playerRef.set({ name: state.myName, score: state.myScore }).then(() => {
           state.playerRef.onDisconnect().remove();
           clearTimeout(state.joinTimeout);
+          savePlayerSession();
           document.getElementById('wait-name').textContent = state.myName;
           showScreen('screen-wait');
           listenForBroadcasts();
@@ -762,13 +809,15 @@
         const me    = (data.leaderboard || []).find(p => p.name === state.myName);
         const delta = me ? me.delta : 0;
         state.myScore = me ? me.score : state.myScore;
+        savePlayerSession();
 
         if (data.qtype === 'estimate') {
           const correct   = data.correctAnswer;
           const unitStr   = data.unit ? ' ' + data.unit : '';
-          const gotPoints = delta > 0;
-          document.getElementById('feedback-icon').textContent   = gotPoints ? '🎯' : '💫';
-          document.getElementById('feedback-title').textContent  = gotPoints ? 'Close enough!' : 'Too far off!';
+          const gotPoints  = delta > 0;
+          const isExact    = gotPoints && state.selectedEstimate !== null && Number(state.selectedEstimate) === Number(data.correctAnswer);
+          document.getElementById('feedback-icon').textContent   = isExact ? '🏆' : gotPoints ? '🎯' : '💫';
+          document.getElementById('feedback-title').textContent  = isExact ? 'Perfect!' : gotPoints ? 'Close enough!' : 'Too far off!';
           document.getElementById('feedback-points').textContent = gotPoints ? `+${delta} points` : '0 points';
           document.getElementById('feedback-total').textContent  = `Total: ${state.myScore} points`;
           if (revealEl) {
@@ -815,6 +864,7 @@
     function showGameover(data) {
       const me = (data.leaderboard || []).find(p => p.name === state.myName);
       if (me) state.myScore = me.score;
+      clearPlayerSession();
       document.getElementById('gameover-name').textContent = state.myName;
       document.getElementById('final-score').textContent   = state.myScore + ' points';
       buildLeaderboard('gameover-leaderboard', data.leaderboard || [], 10, state.myName);

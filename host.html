@@ -693,12 +693,15 @@
 
     // ── Game ──────────────────────────────────────────────────────────────────
     function saveGameState() {
+      const playerScores = [...state.players.values()].map(p => ({ name: p.name, score: p.score, correct: p.correct }));
       localStorage.setItem('quiz-game-state', JSON.stringify({
         ts: Date.now(),
         questions: state.questions,
         nextQIndex: state.qIndex + 1,
-        playerScores: [...state.players.values()].map(p => ({ name: p.name, score: p.score, correct: p.correct })),
+        playerScores,
       }));
+      // Keep in-memory savedScores up to date so mid-game reconnects restore scores correctly
+      state.savedScores = new Map(playerScores.map(p => [p.name, p]));
     }
 
     function clearGameState() {
