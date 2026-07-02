@@ -266,6 +266,7 @@
     <div class="pb-label">Game PIN</div>
     <div class="pb-pin" id="pb-pin-display">----</div>
     <div class="pb-url">player.html</div>
+    <div id="pb-qr-code" style="background:#fff;padding:6px;border-radius:8px;display:inline-block;margin-top:8px"></div>
   </div>
 
   <!-- LOBBY -->
@@ -355,6 +356,15 @@
         colorLight:   '#ffffff',
         correctLevel: QRCode.CorrectLevel.M,
       });
+
+      new QRCode(document.getElementById('pb-qr-code'), {
+        text:         joinUrl,
+        width:        90,
+        height:       90,
+        colorDark:    '#000000',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
     })();
   </script>
 
@@ -409,7 +419,7 @@
       { question: "Which team won the 2022 FIFA World Cup in Qatar?", options: ["France", "Brazil", "Croatia", "Argentina"], correctIndex: 3, timeLimit: 45, explanation: "Argentina beat France 4–2 on penalties after a thrilling 3–3 draw." },
       { question: "Who scored the most goals in a single World Cup?", options: ["Gerd Müller (1970)", "Just Fontaine (1958)", "Ronaldo (2002)", "Sándor Kocsis (1954)"], correctIndex: 1, timeLimit: 45, explanation: "Just Fontaine of France scored 13 goals at the 1958 World Cup in Sweden — a record that still stands." },
       { question: "England won the World Cup in 1966. Who did they beat in the final?", options: ["Portugal", "USSR", "West Germany", "Brazil"], correctIndex: 2, timeLimit: 45, explanation: "England beat West Germany 4–2 at Wembley. Geoff Hurst scored a hat-trick." },
-      { question: "Which goalkeeper holds the record for most clean sheets in World Cup history?", options: ["Iker Casillas", "Peter Shilton", "Manuel Neuer", "Dino Zoff"], correctIndex: 1, timeLimit: 45, explanation: "Peter Shilton (England, 1982–1990) and Fabien Barthez (France, 1998–2006) share the record with 10 clean sheets each. Iker Casillas holds the separate record for most penalties saved (2) in open play." },
+      { question: "Which goalkeeper holds the record for most clean sheets in World Cup history?", options: ["Iker Casillas", "Peter Shilton", "Manuel Neuer", "Dino Zoff"], correctIndex: 1, timeLimit: 45, explanation: "Peter Shilton (England) holds the record with 10 clean sheets across three World Cups (1982, 1986, 1990) — more than any other goalkeeper in tournament history." },
       { question: "The 'Hand of God' goal was scored by Diego Maradona against which team?", options: ["Germany", "England", "Brazil", "Belgium"], correctIndex: 1, timeLimit: 45, explanation: "Maradona's infamous handball came in the 1986 quarter-final against England." },
       { question: "Which World Cup saw the introduction of VAR for the first time?", options: ["Brazil 2014", "Russia 2018", "South Africa 2010", "Qatar 2022"], correctIndex: 1, timeLimit: 45, explanation: "VAR was used for the first time at the 2018 World Cup in Russia." },
       { question: "Which player won the Golden Ball at both the 2014 and 2022 World Cups?", options: ["Cristiano Ronaldo", "Neymar", "Lionel Messi", "Kylian Mbappé"], correctIndex: 2, timeLimit: 45, explanation: "Lionel Messi won the Golden Ball in 2014 and again in 2022 when he finally lifted the trophy." },
@@ -489,11 +499,11 @@
       { question: "Who is this football legend?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/2019_-_Press_conferences_-_Day_1_ENX_6950_%2849019873887%29_%28cropped%29.jpg/330px-2019_-_Press_conferences_-_Day_1_ENX_6950_%2849019873887%29_%28cropped%29.jpg", options: ["Robinho", "Ronaldinho", "Kaká", "Adriano"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "Ronaldinho won the 2002 World Cup with Brazil and scored a stunning 40-yard free kick against England in the quarter-finals." },
       { question: "Who is this football legend?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Johan_Cruijff_%281974%29.jpg/330px-Johan_Cruijff_%281974%29.jpg", options: ["Michel Platini", "Franz Beckenbauer", "Johan Cruyff", "Eusébio"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "Johan Cruyff was the face of 'Total Football' and led the Netherlands to the 1974 World Cup Final, where they lost to West Germany." },
       { question: "Who is this football legend?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Franz_Beckenbauer_%281975%29.jpg/330px-Franz_Beckenbauer_%281975%29.jpg", options: ["Gerd Müller", "Franz Beckenbauer", "Karl-Heinz Rummenigge", "Uwe Seeler"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "Franz Beckenbauer won the World Cup both as captain (1974) and as manager (1990) — the only person ever to do so." },
-      { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Neymar_Junior_Brazil_V_Morocco_13_June_2026-40.jpg/330px-Neymar_Junior_Brazil_V_Morocco_13_June_2026-40.jpg", options: ["Neymar", "Vinicius Jr.", "Gabriel Jesus", "Richarlison"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "Neymar has represented Brazil at three World Cups (2014, 2018, 2022) and is Brazil's all-time leading scorer." },
+      { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Neymar_Junior_Brazil_V_Morocco_13_June_2026-40.jpg/330px-Neymar_Junior_Brazil_V_Morocco_13_June_2026-40.jpg", options: ["Neymar", "Vinicius Jr.", "Gabriel Jesus", "Richarlison"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "Neymar has represented Brazil at four World Cups (2014, 2018, 2022, 2026) and is Brazil's all-time leading scorer." },
       { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Ofrenda_de_la_Liga_y_la_Champions-57-L.Mill%C3%A1n_%2852109310843%29_%28Luka_Modri%C4%87%29.jpg/330px-Ofrenda_de_la_Liga_y_la_Champions-57-L.Mill%C3%A1n_%2852109310843%29_%28Luka_Modri%C4%87%29.jpg", options: ["Ivan Rakitić", "Mario Mandžukić", "Luka Modrić", "Ivan Perišić"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "Luka Modrić captained Croatia to the 2018 World Cup Final and won the Golden Ball as the tournament's best player." },
       { question: "Who is this football star?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Kylian_Mbappe_France_v_Senegal_16_June_2026-391_%28cropped%29.jpg/330px-Kylian_Mbappe_France_v_Senegal_16_June_2026-391_%28cropped%29.jpg", options: ["Antoine Griezmann", "Ousmane Dembélé", "Karim Benzema", "Kylian Mbappé"], correctIndex: 3, type: "image", timeLimit: 45, explanation: "Kylian Mbappé scored 8 goals at the 2022 World Cup, including a hat-trick in the final, and won the Golden Boot." },
       { question: "What is this famous trophy?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Copa_america_trofeo.jpg/330px-Copa_america_trofeo.jpg", options: ["Copa América", "FIFA Confederations Cup", "UEFA Euro", "CONCACAF Gold Cup"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "The Copa América is the oldest international football tournament. Argentina won it in 2021, ending a 28-year wait for a major title before their 2022 World Cup triumph." },
-      { question: "What is this famous trophy?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Coupe_Henri_Delaunay_2017.jpg/330px-Coupe_Henri_Delaunay_2017.jpg", options: ["FIFA World Cup", "UEFA Champions League", "UEFA European Championship", "Copa América"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "The UEFA European Championship (Euro) trophy is awarded every four years. Germany and Spain have won it the most times, with 3 titles each." },
+      { question: "What is this famous trophy?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Coupe_Henri_Delaunay_2017.jpg/330px-Coupe_Henri_Delaunay_2017.jpg", options: ["FIFA World Cup", "UEFA Champions League", "UEFA European Championship", "Copa América"], correctIndex: 2, type: "image", timeLimit: 45, explanation: "The UEFA European Championship (Euro) trophy is awarded every four years. Spain is the most successful nation with 4 titles (1964, 2008, 2012, 2024), ahead of Germany's 3 (1972, 1980, 1996)." },
       { question: "Which stadium is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/2018.06.17_Over_the_Rose_Bowl%2C_Pasadena%2C_CA_USA_0039_%2842855669451%29_%28cropped%29.jpg/330px-2018.06.17_Over_the_Rose_Bowl%2C_Pasadena%2C_CA_USA_0039_%2842855669451%29_%28cropped%29.jpg", options: ["Rose Bowl", "SoFi Stadium", "AT&T Stadium", "Allegiant Stadium"], correctIndex: 0, type: "image", timeLimit: 45, explanation: "The Rose Bowl in Pasadena, California hosted the 1994 World Cup Final where Brazil beat Italy on penalties. It is also a 2026 World Cup venue." },
       { question: "Which stadium is this?", image: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/LuzhnikiStadium.jpg/330px-LuzhnikiStadium.jpg", options: ["Wembley", "Luzhniki", "Maracanã", "Estadio Azteca"], correctIndex: 1, type: "image", timeLimit: 45, explanation: "Luzhniki Stadium in Moscow hosted the 2018 World Cup Final where France beat Croatia 4–2." },
     ];
